@@ -34,8 +34,8 @@ export default function Bookings() {
         const headers = { "Authorization": `Bearer ${token}` }; // <--- Create Header
 
         const [resBookings, resExpenses] = await Promise.all([
-          fetch("http://localhost:5000/api/bookings", { headers }),
-          fetch("http://localhost:5000/api/expenses", { headers })
+          fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/bookings", { headers }),
+          fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/expenses", { headers })
         ]);
         
         if (resBookings.ok && resExpenses.ok) {
@@ -60,7 +60,7 @@ export default function Bookings() {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/bookings", {
+      const res = await fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/bookings", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

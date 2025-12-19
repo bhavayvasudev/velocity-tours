@@ -69,7 +69,7 @@ export default function Settings() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/auth/users", {
+      const res = await fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/auth/users", {
         headers: { 
           "Authorization": `Bearer ${token}` 
         }
@@ -96,7 +96,7 @@ export default function Settings() {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/auth/register", {
+      const res = await fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/auth/register", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -129,7 +129,7 @@ export default function Settings() {
     if (window.confirm("Are you sure you want to delete this user?")) {
       try {
         const token = localStorage.getItem("token");
-        await fetch(`http://localhost:5000/api/auth/users/${userId}`, {
+        await fetch(`https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/auth/users/${userId}`, {
           method: "DELETE",
           headers: { 
             "Authorization": `Bearer ${token}` 
@@ -148,7 +148,7 @@ export default function Settings() {
   const handleCleanGhosts = async () => {
     try {
       const token = localStorage.getItem("token");
-      await fetch("http://localhost:5000/api/expenses/cleanup/ghosts", { 
+      await fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/expenses/cleanup/ghosts", { 
          headers: { 
            "Authorization": `Bearer ${token}` 
          }
@@ -164,7 +164,7 @@ export default function Settings() {
       if (window.confirm("Are you 100% sure?")) {
         try {
           const token = localStorage.getItem("token");
-          await fetch("http://localhost:5000/api/bookings/database/reset", { 
+          await fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/bookings/database/reset", { 
             method: "DELETE",
             headers: { 
               "Authorization": `Bearer ${token}` 

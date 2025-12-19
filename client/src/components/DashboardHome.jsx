@@ -35,8 +35,8 @@ export default function DashboardHome() {
         const headers = { "Authorization": `Bearer ${token}` }; // <--- Add Header
 
         const [bookingsRes, expensesRes] = await Promise.all([
-          fetch("http://localhost:5000/api/bookings", { headers }),
-          fetch("http://localhost:5000/api/expenses", { headers })
+          fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/bookings", { headers }),
+          fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/expenses", { headers })
         ]);
         
         // ... (Rest of the code remains the same)
