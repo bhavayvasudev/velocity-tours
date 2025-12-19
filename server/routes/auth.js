@@ -7,7 +7,7 @@ const rateLimit = require('express-rate-limit');
 const { verifyToken, adminOnly } = require("../middleware/authMiddleware");
 
 // ==========================================
-// 1. DEFINE LIMITER (This was missing!)
+// 1. DEFINE LIMITER
 // ==========================================
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
@@ -32,26 +32,27 @@ router.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Check User
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ message: "User not found." });
 
-    // Check Password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: "Wrong password." });
 
-    // Generate Tokens
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    res.cookie('token', token, {
+    // FIX: Sending the refreshToken as the persistent cookie
+    res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none', // Crucial for Vercel-to-Vercel communication
-      maxAge: 3600000 
+      secure: true,      // Must be true for Vercel/HTTPS
+      sameSite: 'none',  // Must be 'none' for Cross-Domain
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    res.json({ accessToken, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    res.json({ 
+      accessToken, 
+      user: { id: user._id, name: user.name, email: user.email, role: user.role } 
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -111,7 +112,11 @@ router.delete("/users/:id", verifyToken, adminOnly, async (req, res) => {
 // 7. LOGOUT & REFRESH
 // ==========================================
 router.post('/logout', (req, res) => {
-  res.clearCookie('refreshToken');
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none'
+  });
   res.json({ message: "Logged out" });
 });
 

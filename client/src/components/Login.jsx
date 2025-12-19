@@ -10,7 +10,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { login } = useAuth();
+  const { login } = useAuth(); // Global login function
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -18,19 +18,22 @@ export default function Login() {
     setError("");
     setIsSubmitting(true);
 
-  const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(formData),
-    credentials: "include" // <--- IF THIS IS MISSING, LOGIN WILL NEVER WORK
-  });
-    
-    if (result.success) {
-      navigate("/"); // Redirect to Dashboard
-    } else {
-      setError(result.message || "Login failed");
+    try {
+      // We use the login function from AuthContext to handle the fetch
+      // Ensure your AuthContext.js fetch includes: credentials: "include"
+      const result = await login(email, password);
+      
+      if (result.success) {
+        navigate("/"); // Redirect to Dashboard on success
+      } else {
+        setError(result.message || "Invalid credentials. Please try again.");
+      }
+    } catch (err) {
+      console.error("Login component error:", err);
+      setError("Server connection failed. Please try again later.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   return (
@@ -46,7 +49,7 @@ export default function Login() {
           <p className="text-blue-100 mt-2 text-sm">Restricted Access Portal</p>
         </div>
 
-        {/* Form */}
+        {/* Form Area */}
         <div className="p-8">
           {error && (
             <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 rounded-lg flex items-center gap-3 text-red-600 dark:text-red-400 text-sm">

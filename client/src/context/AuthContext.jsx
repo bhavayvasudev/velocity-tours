@@ -8,7 +8,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // On load, check if we have a token saved
+    // Check for stored session on initial load
     const storedToken = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
     
@@ -21,16 +21,18 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const res = await fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/auth/login", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
+        // CRITICAL: Required to receive the secure HttpOnly cookie from Vercel
+        credentials: "include" 
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        // SAVE TOKEN TO STORAGE
+        // Save the Access Token for API headers and user info for UI
         localStorage.setItem("token", data.accessToken);
         localStorage.setItem("user", JSON.stringify(data.user));
         
@@ -41,20 +43,32 @@ export const AuthProvider = ({ children }) => {
         return { success: false, message: data.message };
       }
     } catch (err) {
+      console.error("AuthContext Login Error:", err);
       return { success: false, message: "Server connection failed" };
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setUser(null);
-    setToken(null);
+  const logout = async () => {
+    try {
+      // Notify the server to clear the refreshToken cookie
+      await fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include"
+      });
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      // Always clear local state even if server call fails
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      setUser(null);
+      setToken(null);
+    }
   };
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout, loading }}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
