@@ -6,11 +6,10 @@ const cookieParser = require('cookie-parser');
 
 const app = express();
 
-// server/server.js
 app.use(cors({
-  origin: "https://velocity-tours-fsjn-bhavay-vasudevs-projects.vercel.app", // Use your EXACT frontend link here (no trailing slash)
+  origin: true, // This allows the specific Vercel frontend to connect
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 

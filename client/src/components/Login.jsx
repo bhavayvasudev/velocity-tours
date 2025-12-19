@@ -18,12 +18,12 @@ export default function Login() {
     setError("");
     setIsSubmitting(true);
 
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ email, password }),
-  credentials: "include" // <--- YOU MUST HAVE THIS
-});
+  const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(formData),
+    credentials: "include" // <--- IF THIS IS MISSING, LOGIN WILL NEVER WORK
+  });
     
     if (result.success) {
       navigate("/"); // Redirect to Dashboard

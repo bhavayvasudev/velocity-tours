@@ -44,13 +44,12 @@ router.post('/login', loginLimiter, async (req, res) => {
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    // Inside your login route
-res.cookie('token', token, {
-  httpOnly: true,
-  secure: true,        // <--- REQUIRED for Vercel/HTTPS
-  sameSite: 'none',    // <--- REQUIRED for Cross-Site (Frontend vs Backend)
-  maxAge: 3600000      // 1 hour
-});
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none', // Crucial for Vercel-to-Vercel communication
+      maxAge: 3600000 
+    });
 
     res.json({ accessToken, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
   } catch (err) {
