@@ -18,7 +18,12 @@ export default function Login() {
     setError("");
     setIsSubmitting(true);
 
-    const result = await login(email, password);
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email, password }),
+  credentials: "include" // <--- YOU MUST HAVE THIS
+});
     
     if (result.success) {
       navigate("/"); // Redirect to Dashboard

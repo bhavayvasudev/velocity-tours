@@ -6,14 +6,10 @@ const cookieParser = require('cookie-parser');
 
 const app = express();
 
-// 1. SECURITY MIDDLEWARE
-// Enable Credentials so cookies can be sent back and forth
+// server/server.js
 app.use(cors({
-  origin: function (origin, callback) {
-    // This function allows ANY domain to connect while keeping cookies working
-    return callback(null, true);
-  },
-  credentials: true,               // <--- CRITICAL for cookies
+  origin: "https://velocity-tours-fsjn-bhavay-vasudevs-projects.vercel.app", // Use your EXACT frontend link here (no trailing slash)
+  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
