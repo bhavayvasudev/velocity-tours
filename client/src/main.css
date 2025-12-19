@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* Enable dark mode variant */
+@variant dark (&:where(.dark, .dark *));
+
+/* Tailwind v4 THEME */
+@theme {
+  /* 🎨 Colors */
+  --color-primary: #3C50E0;
+  --color-secondary: #80CAEE;
+  --color-dark: #1E293B;
+  --color-light: #F1F5F9;
+  --color-danger: #E3342F;
+  --color-success: #38C172;
+
+  /* 📱 Breakpoints (THIS FIXES YOUR SIDEBAR ISSUE) */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+}
+
+/* Base styles */
+body {
+  background-color: var(--color-light);
+  color: var(--color-dark);
+  font-family: system-ui, sans-serif;
+}

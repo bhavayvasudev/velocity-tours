@@ -1,0 +1,35 @@
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const cookieParser = require('cookie-parser'); // <--- IMPORT THIS
+
+const app = express();
+
+// 1. SECURITY MIDDLEWARE
+// Enable Credentials so cookies can be sent back and forth
+// server/server.js
+
+app.use(cors({
+  origin: "http://localhost:5173", // <--- NO SLASH AT THE END!
+  credentials: true,               // <--- CRITICAL
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+app.use(express.json());
+app.use(cookieParser()); // <--- ACTIVATE THIS
+
+// 2. DATABASE CONNECTION
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch(err => console.log(err));
+
+// 3. ROUTES
+app.use('/api/bookings', require('./routes/bookings'));
+app.use('/api/expenses', require('./routes/expenses'));
+app.use('/api/auth', require('./routes/auth')); // <--- WE WILL CREATE THIS NEXT
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+module.exports = app;
