@@ -34,13 +34,12 @@ export default function DashboardHome() {
       try {
         const headers = { "Authorization": `Bearer ${token}` }; // <--- Add Header
 
+        // FIXED URLS BELOW
         const [bookingsRes, expensesRes] = await Promise.all([
-          fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/bookings", { headers }),
-          fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/expenses", { headers })
+          fetch("https://velocity-tours.vercel.app/api/bookings", { headers }),
+          fetch("https://velocity-tours.vercel.app/api/expenses", { headers })
         ]);
         
-        // ... (Rest of the code remains the same)
-
         if (bookingsRes.ok && expensesRes.ok) {
             const bookings = await bookingsRes.json();
             const expenses = await expensesRes.json();

@@ -69,7 +69,8 @@ export default function Settings() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/auth/users", {
+      // FIXED URL BELOW
+      const res = await fetch("https://velocity-tours.vercel.app/api/auth/users", {
         headers: { 
           "Authorization": `Bearer ${token}` 
         }
@@ -96,7 +97,8 @@ export default function Settings() {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/auth/register", {
+      // FIXED URL BELOW
+      const res = await fetch("https://velocity-tours.vercel.app/api/auth/register", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -129,7 +131,8 @@ export default function Settings() {
     if (window.confirm("Are you sure you want to delete this user?")) {
       try {
         const token = localStorage.getItem("token");
-        await fetch(`https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/auth/users/${userId}`, {
+        // FIXED URL BELOW
+        await fetch(`https://velocity-tours.vercel.app/api/auth/users/${userId}`, {
           method: "DELETE",
           headers: { 
             "Authorization": `Bearer ${token}` 
@@ -148,7 +151,8 @@ export default function Settings() {
   const handleCleanGhosts = async () => {
     try {
       const token = localStorage.getItem("token");
-      await fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/expenses/cleanup/ghosts", { 
+      // FIXED URL BELOW
+      await fetch("https://velocity-tours.vercel.app/api/expenses/cleanup/ghosts", { 
          headers: { 
            "Authorization": `Bearer ${token}` 
          }
@@ -164,7 +168,8 @@ export default function Settings() {
       if (window.confirm("Are you 100% sure?")) {
         try {
           const token = localStorage.getItem("token");
-          await fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/bookings/database/reset", { 
+          // FIXED URL BELOW
+          await fetch("https://velocity-tours.vercel.app/api/bookings/database/reset", { 
             method: "DELETE",
             headers: { 
               "Authorization": `Bearer ${token}` 

@@ -32,9 +32,10 @@ export default function BookingDetails({ bookingId, onBack }) {
 
       const headers = { "Authorization": `Bearer ${token}` };
 
+      // FIXED URLS BELOW
       const [resBooking, resExpenses] = await Promise.all([
-        fetch(`https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/bookings/${bookingId}`, { headers }),
-        fetch(`https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/expenses/booking/${bookingId}`, { headers })
+        fetch(`https://velocity-tours.vercel.app/api/bookings/${bookingId}`, { headers }),
+        fetch(`https://velocity-tours.vercel.app/api/expenses/booking/${bookingId}`, { headers })
       ]);
 
       if (resBooking.ok && resExpenses.ok) {
@@ -52,7 +53,8 @@ export default function BookingDetails({ bookingId, onBack }) {
 
   // 2. Handle Booking Update
   const handleUpdateBooking = async () => {
-    await fetch(`https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/bookings/${bookingId}`, {
+    // FIXED URL BELOW
+    await fetch(`https://velocity-tours.vercel.app/api/bookings/${bookingId}`, {
       method: "PUT",
       headers: getAuthHeaders(),
       body: JSON.stringify(editBookingData),
@@ -63,7 +65,8 @@ export default function BookingDetails({ bookingId, onBack }) {
 
   // 3. Handle Expense Update
   const handleUpdateExpense = async (expenseId) => {
-    await fetch(`https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/expenses/${expenseId}`, {
+    // FIXED URL BELOW
+    await fetch(`https://velocity-tours.vercel.app/api/expenses/${expenseId}`, {
       method: "PUT",
       headers: getAuthHeaders(),
       body: JSON.stringify(editExpenseData),
@@ -75,7 +78,8 @@ export default function BookingDetails({ bookingId, onBack }) {
   // 4. Handle Add Expense
   const handleAddExpense = async (e) => {
     e.preventDefault();
-    await fetch("https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/expenses", {
+    // FIXED URL BELOW
+    await fetch("https://velocity-tours.vercel.app/api/expenses", {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -94,7 +98,8 @@ export default function BookingDetails({ bookingId, onBack }) {
   // 5. Handle Delete Expense
   const handleDeleteExpense = async (expenseId) => {
     if (window.confirm("Delete this expense record?")) {
-      await fetch(`https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/expenses/${expenseId}`, { 
+      // FIXED URL BELOW
+      await fetch(`https://velocity-tours.vercel.app/api/expenses/${expenseId}`, { 
         method: "DELETE",
         headers: getAuthHeaders()
       });
@@ -105,7 +110,8 @@ export default function BookingDetails({ bookingId, onBack }) {
   // 6. Handle Delete Booking
   const handleDeleteBooking = async () => {
     if (window.confirm("Are you sure you want to delete this booking? This cannot be undone.")) {
-      await fetch(`https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app/api/bookings/${bookingId}`, {
+      // FIXED URL BELOW
+      await fetch(`https://velocity-tours.vercel.app/api/bookings/${bookingId}`, {
         method: "DELETE",
         headers: getAuthHeaders()
       });
