@@ -13,14 +13,14 @@ export default function Login() {
   const { login } = useAuth(); // Global login function
   const navigate = useNavigate();
 
+  // THIS IS THE FIXED HANDLER
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault(); // <--- CRITICAL: Stops the "GET" error
     setError("");
     setIsSubmitting(true);
 
     try {
-      // We use the login function from AuthContext to handle the fetch
-      // Ensure your AuthContext.js fetch includes: credentials: "include"
+      // Use the login function from AuthContext
       const result = await login(email, password);
       
       if (result.success) {
