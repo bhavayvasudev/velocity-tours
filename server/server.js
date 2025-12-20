@@ -6,14 +6,23 @@ const cookieParser = require('cookie-parser');
 
 const app = express();
 
-// 1. SECURITY & CORS SETUP
+// =====================================================
+// THE FIX: DYNAMIC ORIGIN CHECK
+// =====================================================
 app.use(cors({
-  // FIX: We are using an ARRAY to allow both versions of your Vercel URL
-  origin: [
-    "https://velocity-tours-fsjn-bhavay-vasudevs-projects.vercel.app",
-    "https://velocity-tours-git-main-bhavay-vasudevs-projects.vercel.app"
-  ],
-  credentials: true,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // ALLOW ANY VERCEL URL (This fixes the "80a5xz" mismatch)
+    if (origin.includes("vercel.app") || origin.includes("localhost")) {
+      return callback(null, true);
+    }
+    
+    // Block other domains
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true, // Crucial for cookies
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
@@ -21,12 +30,10 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-// 2. DATABASE CONNECTION
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch(err => console.log(err));
 
-// 3. ROUTES
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/auth', require('./routes/auth'));

@@ -7,11 +7,13 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [loading, setLoading] = useState(true);
 
+  // ==========================================
+  // LOAD SESSION ON APP START
+  // ==========================================
   useEffect(() => {
-    // Check for stored session on initial load
     const storedToken = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
-    
+
     if (storedToken && storedUser) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
@@ -19,51 +21,48 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  // ==========================================
+  // LOGIN (TOKEN BASED)
+  // ==========================================
   const login = async (email, password) => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({ email, password }),
-        // CRITICAL: Required to receive the secure HttpOnly cookie from Vercel
-        credentials: "include" 
+        credentials: "include"
       });
 
       const data = await res.json();
 
-      if (res.ok) {
-        // Save the Access Token for API headers and user info for UI
-        localStorage.setItem("token", data.accessToken);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        
-        setToken(data.accessToken);
-        setUser(data.user);
-        return { success: true };
-      } else {
+      if (!res.ok) {
         return { success: false, message: data.message };
       }
+
+      // ✅ SAVE TOKEN + USER
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      setToken(data.token);
+      setUser(data.user);
+
+      return { success: true };
     } catch (err) {
-      console.error("AuthContext Login Error:", err);
+      console.error("Login error:", err);
       return { success: false, message: "Server connection failed" };
     }
   };
 
-  const logout = async () => {
-    try {
-      // Notify the server to clear the refreshToken cookie
-      await fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
-        method: "POST",
-        credentials: "include"
-      });
-    } catch (err) {
-      console.error("Logout error:", err);
-    } finally {
-      // Always clear local state even if server call fails
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      setUser(null);
-      setToken(null);
-    }
+  // ==========================================
+  // LOGOUT (CLIENT SIDE)
+  // ==========================================
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setToken(null);
+    setUser(null);
   };
 
   return (
