@@ -26,13 +26,11 @@ export const AuthProvider = ({ children }) => {
   // ==========================================
   const login = async (email, password) => {
     try {
-      const res = await fetch("/api/auth/login", {
+        const res = await fetch("https://velocity-tours.vercel.app/api/auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
-        credentials: "include"
+        credentials: "include" 
       });
 
       const data = await res.json();
@@ -58,7 +56,18 @@ export const AuthProvider = ({ children }) => {
   // ==========================================
   // LOGOUT (CLIENT SIDE)
   // ==========================================
-  const logout = () => {
+  const logout = async () => {
+    try {
+      // HARDCODED BACKEND URL: Ensures we hit the real server to delete the cookie
+      await fetch("https://velocity-tours.vercel.app/api/auth/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+
+    // Always clear the local storage immediately
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setToken(null);
