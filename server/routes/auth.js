@@ -19,7 +19,7 @@ const loginLimiter = rateLimit({
 // 2. HELPER FUNCTIONS
 // ==========================================
 const generateAccessToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'secret123', { expiresIn: '15m' });
+  return jwt.sign({ id }, process.env.JWT_SECRET || 'secret123', { expiresIn: '24h' });
 };
 const generateRefreshToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_REFRESH_SECRET || 'refreshSecret123', { expiresIn: '7d' });
