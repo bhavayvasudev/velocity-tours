@@ -3,6 +3,10 @@ import { Plus, Calendar, User, X, Filter, Download, ChevronDown, FileSpreadsheet
 import BookingDetails from "./BookingDetails";
 import * as XLSX from "xlsx";
 
+// 👇 REPLACE THIS WITH YOUR EXACT VERCEL URL
+// (I took this from your screenshot, but verify it matches your browser bar)
+const API_URL = "https://velocity-tours-fsjn-bznnc6ajn-bhavay-vasudevs-projects.vercel.app/api";
+
 export default function Bookings() {
   const [bookings, setBookings] = useState([]);
   const [expenses, setExpenses] = useState([]); 
@@ -24,19 +28,19 @@ export default function Bookings() {
     date: new Date().toISOString().split('T')[0]
   });
 
- // 1. Fetch Data (Updated with Bearer Token)
+ // 1. Fetch Data
   useEffect(() => {
     const fetchData = async () => {
-      const token = localStorage.getItem("token"); // <--- Get Token
+      const token = localStorage.getItem("token");
       if (!token) return;
 
       try {
-        const headers = { "Authorization": `Bearer ${token}` }; // <--- Create Header
+        const headers = { "Authorization": `Bearer ${token}` };
 
-        // FIXED URLS BELOW
+        // ✅ FIXED: Using API_URL variable
         const [resBookings, resExpenses] = await Promise.all([
-          fetch("https://velocity-tours.vercel.app/api/bookings", { headers }),
-          fetch("https://velocity-tours.vercel.app/api/expenses", { headers })
+          fetch(`${API_URL}/bookings`, { headers }),
+          fetch(`${API_URL}/expenses`, { headers })
         ]);
         
         if (resBookings.ok && resExpenses.ok) {
@@ -50,10 +54,10 @@ export default function Bookings() {
     fetchData();
   }, []);
 
-  // 2. Handle Form Submit (Updated with Bearer Token)
+  // 2. Handle Form Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem("token"); // <--- Get Token
+    const token = localStorage.getItem("token");
 
     if (!formData.name || !formData.clientName || !formData.totalClientPayment) {
       alert("Please fill in all fields");
@@ -61,30 +65,42 @@ export default function Bookings() {
     }
 
     try {
-      // FIXED URL BELOW
-      const res = await fetch("https://velocity-tours.vercel.app/api/bookings", {
+      // ✅ FIXED: Using API_URL variable
+      const res = await fetch(`${API_URL}/bookings`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` // <--- SEND TOKEN HERE
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          ...formData,
-          totalClientPayment: Number(formData.totalClientPayment) 
+          name: formData.name,
+          clientName: formData.clientName,
+          totalClientPayment: Number(formData.totalClientPayment),
+          date: formData.date,
+          // ✅ ADDED: Explicitly sending these to prevent schema errors
+          clientPaidAmount: 0, 
         }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        setBookings([data, ...bookings]);
+        setBookings([data, ...bookings]); // Add new booking to list immediately
         setShowForm(false);
-        setFormData({ name: "", clientName: "", totalClientPayment: "", date: new Date().toISOString().split('T')[0] });
+        // Reset form
+        setFormData({ 
+            name: "", 
+            clientName: "", 
+            totalClientPayment: "", 
+            date: new Date().toISOString().split('T')[0] 
+        });
       } else {
-        alert(`Error: ${data.message}`);
+        console.error("Server Error:", data);
+        alert(`Error: ${data.message || "Failed to save"}`);
       }
     } catch (err) {
-      alert("Network Error");
+      console.error("Network Error:", err);
+      alert("Network Error: Check your internet or server URL.");
     }
   };
 
@@ -209,7 +225,7 @@ export default function Bookings() {
   return (
     <div className="p-4 md:p-8 animate-in fade-in duration-500" onClick={() => setShowExportMenu(false)}>
       
-      {/* HEADER & BUTTONS (Simplified for Sidebar Layout) */}
+      {/* HEADER & BUTTONS */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-800 dark:text-white">Bookings</h1>

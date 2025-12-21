@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 // We import IndianRupee here to replace the Dollar sign
 import { TrendingUp, TrendingDown, Users, IndianRupee, Calendar, Wallet } from "lucide-react";
 
+// 👇 YOUR SPECIFIC VERCEL URL
+const API_URL = "https://velocity-tours-fsjn-bznnc6ajn-bhavay-vasudevs-projects.vercel.app/api";
+
 // 1. Updated StatCard to support Dark Mode
 const StatCard = ({ title, value, subtext, icon: Icon, color }) => (
   <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all">
@@ -34,10 +37,10 @@ export default function DashboardHome() {
       try {
         const headers = { "Authorization": `Bearer ${token}` }; // <--- Add Header
 
-        // FIXED URLS BELOW
+        // ✅ FIXED URLS using API_URL variable
         const [bookingsRes, expensesRes] = await Promise.all([
-          fetch("https://velocity-tours.vercel.app/api/bookings", { headers }),
-          fetch("https://velocity-tours.vercel.app/api/expenses", { headers })
+          fetch(`${API_URL}/bookings`, { headers }),
+          fetch(`${API_URL}/expenses`, { headers })
         ]);
         
         if (bookingsRes.ok && expensesRes.ok) {
