@@ -19,7 +19,6 @@ const loginLimiter = rateLimit({
 // 2. HELPER FUNCTIONS
 // ==========================================
 const generateAccessToken = (id) => {
-  // ✅ FIX 1: Session set to 24 Hours (was 15m)
   return jwt.sign({ id }, process.env.JWT_SECRET || 'secret123', { expiresIn: '24h' });
 };
 const generateRefreshToken = (id) => {
@@ -50,13 +49,13 @@ router.post('/login', loginLimiter, async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    // ✅ FIX 2: Changed 'accessToken' to 'token' to match frontend
+    // ✅ FIXED: Changed 'accessToken' to 'token' to match AuthContext.jsx
     res.json({ 
       token: accessToken, 
       user: { id: user._id, name: user.name, email: user.email, role: user.role } 
     });
   } catch (err) {
-    console.error("Login Error:", err);
+    console.error("Login Error:", err); // Log the actual error for debugging
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -122,15 +121,14 @@ router.post('/logout', (req, res) => {
   res.json({ message: "Logged out" });
 });
 
-// ✅ FIX 3: Restored Refresh Route (Safe to keep)
 router.post('/refresh', async (req, res) => {
   const refreshToken = req.cookies.refreshToken;
   if (!refreshToken) return res.status(401).json({ message: "Not authenticated" });
   try {
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || 'refreshSecret123');
     const accessToken = generateAccessToken(decoded.id);
-    // Updated this to 'token' as well for consistency
-    res.json({ token: accessToken });
+    // ✅ FIXED: Changed 'accessToken' to 'token' here too if your client uses it
+    res.json({ token: accessToken }); 
   } catch (err) {
     res.status(403).json({ message: "Invalid refresh token" });
   }
