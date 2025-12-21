@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, Users, IndianRupee, Calendar, Wallet, Filter } from "lucide-react";
 
-// 👇 USING THE PRODUCTION URL (Matches your fixed Bookings.jsx)
+// 👇 YOUR SPECIFIC VERCEL URL
 const API_URL = "https://velocity-tours.vercel.app/api";
 
 // 1. StatCard Component
@@ -66,10 +66,12 @@ export default function DashboardHome() {
 
   // 2. Filter Engine (Runs whenever filters or data change)
   useEffect(() => {
-    const filterData = (data) => {
-      if (filterType === "all") return data;
+    
+    // Step A: Filter Bookings based on Date
+    const getFilteredBookings = () => {
+      if (filterType === "all") return allBookings;
 
-      return data.filter((item) => {
+      return allBookings.filter((item) => {
         const date = new Date(item.date);
         const month = date.getMonth(); 
         const year = date.getFullYear();
@@ -85,7 +87,6 @@ export default function DashboardHome() {
         }
         if (filterType === "quarterly") {
           let qStart, qEnd;
-          // Financial Quarters
           if (selectedQuarter === "Q1") { // Apr - Jun
             qStart = new Date(selectedYear, 3, 1); 
             qEnd = new Date(selectedYear, 5, 30); 
@@ -108,8 +109,13 @@ export default function DashboardHome() {
       });
     };
 
-    const filteredBookings = filterData(allBookings);
-    const filteredExpenses = filterData(allExpenses);
+    const filteredBookings = getFilteredBookings();
+
+    // Step B: Filter Expenses based on the FILTERED Bookings
+    // 🛑 BUG FIX: We only include expenses that belong to the visible bookings.
+    // If there are 0 bookings, there will be 0 valid Booking IDs, so 0 expenses.
+    const validBookingIds = new Set(filteredBookings.map(b => b._id));
+    const filteredExpenses = allExpenses.filter(e => validBookingIds.has(e.bookingId));
 
     // 3. Calculate Math
     const totalRevenue = filteredBookings.reduce((sum, b) => sum + (b.totalClientPayment || 0), 0);
