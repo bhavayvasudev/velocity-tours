@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { TrendingUp, TrendingDown, Users, IndianRupee, Calendar, Wallet, Filter } from "lucide-react";
+// ✅ CHANGED: Switched to 'Banknote' to prevent crashes if IndianRupee is missing
+import { TrendingUp, TrendingDown, Users, Banknote, Calendar, Wallet, Filter } from "lucide-react";
 
-// 👇 YOUR SPECIFIC VERCEL URL
+// 👇 ✅ FIXED: BACK TO THE PRODUCTION URL
 const API_URL = "https://velocity-tours.vercel.app/api";
 
 // 1. StatCard Component
@@ -56,6 +57,8 @@ export default function DashboardHome() {
         if (bookingsRes.ok && expensesRes.ok) {
             setAllBookings(await bookingsRes.json());
             setAllExpenses(await expensesRes.json());
+        } else {
+            console.error("Server Error:", bookingsRes.status, expensesRes.status);
         }
       } catch (err) {
         console.error("Error loading dashboard data:", err);
@@ -112,8 +115,7 @@ export default function DashboardHome() {
     const filteredBookings = getFilteredBookings();
 
     // Step B: Filter Expenses based on the FILTERED Bookings
-    // 🛑 BUG FIX: We only include expenses that belong to the visible bookings.
-    // If there are 0 bookings, there will be 0 valid Booking IDs, so 0 expenses.
+    // ✅ STRICT MODE: Only show expenses for trips that are visible
     const validBookingIds = new Set(filteredBookings.map(b => b._id));
     const filteredExpenses = allExpenses.filter(e => validBookingIds.has(e.bookingId));
 
@@ -129,7 +131,6 @@ export default function DashboardHome() {
       netProfit,
       profitAfterTax, 
       activeBookings: filteredBookings.length,
-      // Sort newest first, take top 5
       recentActivity: filteredBookings.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 5) 
     });
 
@@ -178,7 +179,6 @@ export default function DashboardHome() {
 
             {filterType !== "all" && (
             <>
-                {/* YEAR SELECT */}
                 <select 
                     className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500" 
                     value={selectedYear} 
@@ -191,7 +191,6 @@ export default function DashboardHome() {
                     ))}
                 </select>
 
-                {/* QUARTER SELECT */}
                 {filterType === "quarterly" && (
                     <select 
                         className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500" 
@@ -205,7 +204,6 @@ export default function DashboardHome() {
                     </select>
                 )}
 
-                {/* MONTH SELECT */}
                 {filterType === "monthly" && (
                     <select 
                         className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500" 
@@ -230,7 +228,7 @@ export default function DashboardHome() {
           title="Total Revenue" 
           value={formatMoney(stats.totalRevenue)} 
           subtext="Total Deal Value"
-          icon={IndianRupee} 
+          icon={Banknote} 
           color="bg-blue-500" 
         />
         
