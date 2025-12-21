@@ -4,7 +4,7 @@ import BookingDetails from "./BookingDetails";
 import * as XLSX from "xlsx";
 
 // 👇 UPDATED TO MATCH YOUR DASHBOARD URL (This is the one that works!)
-const API_URL = "https://velocity-tours-fsjn-bznnc6ajn-bhavay-vasudevs-projects.vercel.app/api";
+const API_URL = "https://velocity-tours.vercel.app/api";
 
 export default function Bookings() {
   const [bookings, setBookings] = useState([]);
