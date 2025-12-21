@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 
 // 👇 REPLACE THIS WITH YOUR EXACT VERCEL URL
 // (I took this from your screenshot, but verify it matches your browser bar)
-const API_URL = "https://velocity-tours-fsjn-bznnc6ajn-bhavay-vasudevs-projects.vercel.app";
+const API_URL = "https://velocity-tours-fsjn-git-main-bhavay-vasudevs-projects.vercel.app";
 
 export default function Bookings() {
   const [bookings, setBookings] = useState([]);
