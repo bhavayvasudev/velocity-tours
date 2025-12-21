@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
-// 👇 YOUR SPECIFIC VERCEL URL
-const API_URL = "https://velocity-tours-fsjn-bznnc6ajn-bhavay-vasudevs-projects.vercel.app/api";
+// 👇 IMPORTANT: Must match the URL in Bookings.jsx
+const API_URL = "https://velocity-tours.vercel.app/api";
 
 export default function Settings() {
   const { logout, user } = useAuth();
@@ -172,14 +172,20 @@ export default function Settings() {
         try {
           const token = localStorage.getItem("token");
           // ✅ FIXED URL
-          await fetch(`${API_URL}/bookings/database/reset`, { 
+          const res = await fetch(`${API_URL}/bookings/database/reset`, { 
             method: "DELETE",
             headers: { 
               "Authorization": `Bearer ${token}` 
             }
           });
-          alert("Database has been reset.");
-          window.location.reload();
+          
+          if (res.ok) {
+              alert("Database has been reset.");
+              window.location.reload();
+          } else {
+              const data = await res.json();
+              alert("Failed: " + (data.message || "Unknown error"));
+          }
         } catch (err) { 
           alert("Error resetting database."); 
         }
