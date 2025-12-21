@@ -6,27 +6,21 @@ const cookieParser = require('cookie-parser');
 
 const app = express();
 
-// =====================================================
-// THE FIX: DYNAMIC ORIGIN CHECK
-// =====================================================
+// 1. CORS CONFIGURATION
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
-    // ALLOW ANY VERCEL URL (This fixes the "80a5xz" mismatch)
     if (origin.includes("vercel.app") || origin.includes("localhost")) {
       return callback(null, true);
     }
-    
-    // Block other domains
     return callback(new Error('Not allowed by CORS'));
   },
-  credentials: true, // Crucial for cookies
+  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
+app.options('*', cors());
 app.use(express.json());
 app.use(cookieParser());
 
