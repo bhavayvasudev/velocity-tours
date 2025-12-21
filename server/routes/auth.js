@@ -49,12 +49,13 @@ router.post('/login', loginLimiter, async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
+    // ✅ FIXED: Changed 'accessToken' to 'token' to match AuthContext.jsx
     res.json({ 
-      accessToken, 
+      token: accessToken, 
       user: { id: user._id, name: user.name, email: user.email, role: user.role } 
     });
   } catch (err) {
-    console.error(err);
+    console.error("Login Error:", err); // Log the actual error for debugging
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -126,7 +127,8 @@ router.post('/refresh', async (req, res) => {
   try {
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || 'refreshSecret123');
     const accessToken = generateAccessToken(decoded.id);
-    res.json({ accessToken });
+    // ✅ FIXED: Changed 'accessToken' to 'token' here too if your client uses it
+    res.json({ token: accessToken }); 
   } catch (err) {
     res.status(403).json({ message: "Invalid refresh token" });
   }
