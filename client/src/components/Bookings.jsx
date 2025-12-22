@@ -233,6 +233,68 @@ export default function Bookings() {
       </button>
     </div>
 
+    {/* FILTER BAR */}
+<div className="bg-slate-100 dark:bg-slate-800/50 p-4 rounded-2xl mb-6 flex flex-wrap gap-4 items-center border border-slate-200 dark:border-slate-700">
+  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium mr-2">
+    <Filter size={18} /> Filters:
+  </div>
+
+  <select
+    className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+    value={filterType}
+    onChange={(e) => setFilterType(e.target.value)}
+  >
+    <option value="all">All Time</option>
+    <option value="monthly">Monthly View</option>
+    <option value="quarterly">Quarterly</option>
+    <option value="yearly">Financial Year</option>
+  </select>
+
+  {filterType !== "all" && (
+    <>
+      <select
+        className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        value={selectedYear}
+        onChange={(e) => setSelectedYear(e.target.value)}
+      >
+        {yearOptions.map((yr) => (
+          <option key={yr} value={yr}>
+            {filterType === "monthly" ? yr : `FY ${yr}-${yr + 1}`}
+          </option>
+        ))}
+      </select>
+
+      {filterType === "quarterly" && (
+        <select
+          className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          value={selectedQuarter}
+          onChange={(e) => setSelectedQuarter(e.target.value)}
+        >
+          <option value="Q1">Q1 (Apr - Jun)</option>
+          <option value="Q2">Q2 (Jul - Sep)</option>
+          <option value="Q3">Q3 (Oct - Dec)</option>
+          <option value="Q4">Q4 (Jan - Mar)</option>
+        </select>
+      )}
+
+      {filterType === "monthly" && (
+        <select
+          className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+        >
+          {Array.from({ length: 12 }, (_, i) => (
+            <option key={i} value={i}>
+              {new Date(0, i).toLocaleString("default", { month: "long" })}
+            </option>
+          ))}
+        </select>
+      )}
+    </>
+  )}
+</div>
+
+
     {/* BOOKINGS LIST */}
     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
       {filteredList.length === 0 ? (
