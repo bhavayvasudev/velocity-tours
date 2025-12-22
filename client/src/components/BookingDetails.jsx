@@ -5,19 +5,22 @@ import {
   Building2,
   Plus,
   Edit2,
+  CheckCircle,
+  AlertCircle,
   Save,
   X,
   Trash2,
+  Calculator,
   Wallet,
   TrendingUp,
   Banknote,
   Calendar,
-  Plane,
-  FileText,
-  CreditCard
+  Plane,      // Used for Flight Icon
+  FileText,   // Used for Visa Icon
+  CreditCard  // Used for Expenses Header
 } from "lucide-react";
 
-// ✅ LIVE BACKEND URL (Your Working URL)
+// ✅ LIVE BACKEND URL (PRESERVED)
 const API_URL = "https://velocity-tours.vercel.app";
 
 export default function BookingDetails() {
@@ -49,7 +52,7 @@ export default function BookingDetails() {
     }).format(amount);
   };
 
-  // 🎨 UI HELPER: Smart Icons
+  // 🎨 UI HELPER: Smart Icons (Visual Tweak Only)
   const getCategoryIcon = (name) => {
     const lower = name.toLowerCase();
     if (lower.includes("air") || lower.includes("flight") || lower.includes("ticket") || lower.includes("indigo") || lower.includes("vistara")) {
@@ -64,7 +67,7 @@ export default function BookingDetails() {
     return <Wallet size={18} className="text-slate-500" />;
   };
 
-  // 🎨 UI HELPER: Icon Background Colors
+  // 🎨 UI HELPER: Icon Colors (Visual Tweak Only)
   const getCategoryColor = (name) => {
     const lower = name.toLowerCase();
     if (lower.includes("air") || lower.includes("flight")) return "bg-blue-100 dark:bg-blue-900/30";
@@ -81,7 +84,7 @@ export default function BookingDetails() {
     };
   };
 
-  /* ================= FETCH DATA (YOUR EXACT LOGIC) ================= */
+  /* ================= FETCH DATA (PRESERVED) ================= */
   const fetchData = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -89,6 +92,7 @@ export default function BookingDetails() {
 
       const headers = { Authorization: `Bearer ${token}` };
 
+      // ✅ FIX: Use API_URL
       const [resBooking, resExpenses] = await Promise.all([
         fetch(`${API_URL}/api/bookings/${bookingId}`, { headers }),
         fetch(`${API_URL}/api/expenses/booking/${bookingId}`, { headers })
@@ -114,7 +118,7 @@ export default function BookingDetails() {
     fetchData();
   }, [bookingId]);
 
-  /* ================= HANDLERS (YOUR EXACT LOGIC) ================= */
+  /* ================= HANDLERS (PRESERVED) ================= */
   const handleUpdateBooking = async () => {
     await fetch(`${API_URL}/api/bookings/${bookingId}`, {
       method: "PUT",
@@ -171,27 +175,26 @@ export default function BookingDetails() {
     navigate("/bookings");
   };
 
-  /* ================= CALCULATIONS (UI TWEAKED) ================= */
+  /* ================= CALCULATIONS (UI UPDATES) ================= */
   if (!booking) return <div className="p-10 text-center text-slate-500">Loading...</div>;
 
   const clientPending = booking.totalClientPayment - booking.clientPaidAmount;
   const totalVendorCost = expenses.reduce((s, e) => s + e.amount, 0);
   const totalVendorPaid = expenses.reduce((s, e) => s + e.paidAmount, 0);
-  const totalVendorPending = totalVendorCost - totalVendorPaid; // Added for progress bar
+  const totalVendorPending = totalVendorCost - totalVendorPaid; // Added for UI
   const netProfit = booking.totalClientPayment - totalVendorCost;
   
   // Tax Logic
   const profitAfterTaxRaw = netProfit / 1.18;
   const profitAfterTax = Math.round(profitAfterTaxRaw);
   const taxAmount = netProfit - profitAfterTax;
-  const cgst = taxAmount / 2; // Split Tax
-  const sgst = taxAmount / 2; // Split Tax
+  const cgst = taxAmount / 2; // Split for UI
+  const sgst = taxAmount / 2; // Split for UI
 
-  // Progress Percentages
+  // Progress Percentages (Added for UI)
   const clientProgress = booking.totalClientPayment > 0 
     ? (booking.clientPaidAmount / booking.totalClientPayment) * 100 
     : 0;
-    
   const vendorProgress = totalVendorCost > 0
     ? (totalVendorPaid / totalVendorCost) * 100
     : 0;
@@ -233,7 +236,7 @@ export default function BookingDetails() {
 
         <div className="flex gap-2">
           {isEditingBooking ? (
-            <button onClick={handleUpdateBooking} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+            <button onClick={handleUpdateBooking} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm hover:bg-green-700 transition">
               <Save size={18} /> Save
             </button>
           ) : (
@@ -256,7 +259,7 @@ export default function BookingDetails() {
               <h3 className="text-slate-500 font-medium flex items-center gap-2">
                 <Banknote size={18} /> Revenue & Client Payment
               </h3>
-              <span className={`text-xs font-bold px-2 py-1 rounded ${clientProgress === 100 ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'}`}>
+              <span className={`text-xs font-bold px-2 py-1 rounded ${clientProgress >= 100 ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'}`}>
                 {Math.round(clientProgress)}% Received
               </span>
             </div>
@@ -264,8 +267,8 @@ export default function BookingDetails() {
             {/* PROGRESS BAR */}
             <div className="w-full h-3 bg-slate-100 dark:bg-slate-700 rounded-full mb-6 overflow-hidden">
               <div 
-                className={`h-full rounded-full transition-all duration-700 ${clientProgress === 100 ? 'bg-green-500' : 'bg-blue-500'}`}
-                style={{ width: `${clientProgress}%` }}
+                className={`h-full rounded-full transition-all duration-700 ${clientProgress >= 100 ? 'bg-green-500' : 'bg-blue-500'}`}
+                style={{ width: `${Math.min(clientProgress, 100)}%` }}
               ></div>
             </div>
             
@@ -355,11 +358,11 @@ export default function BookingDetails() {
                  </button>
                </div>
                
-               {/* VENDOR PROGRESS BAR */}
+               {/* 🟠 VENDOR PROGRESS BAR */}
                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-orange-400 rounded-full" 
-                    style={{ width: `${vendorProgress}%` }}
+                    style={{ width: `${Math.min(vendorProgress, 100)}%` }}
                   ></div>
                </div>
                <div className="flex justify-between text-[10px] text-slate-400 mt-1 uppercase font-bold">
@@ -375,7 +378,7 @@ export default function BookingDetails() {
                 expenses.map((expense) => (
                   <div key={expense._id} className="group relative flex items-center gap-4 p-3 rounded-xl border border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
                     
-                    {/* ICON BOX */}
+                    {/* 🎨 SMART ICON */}
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${getCategoryColor(expense.vendorName)}`}>
                       {getCategoryIcon(expense.vendorName)}
                     </div>
