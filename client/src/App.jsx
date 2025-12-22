@@ -3,32 +3,37 @@ import { useEffect } from "react";
 import Login from "./components/Login";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
-// Import new Admin Components
+// Admin Components
 import AdminLayout from "./components/AdminLayout";
 import DashboardHome from "./components/DashboardHome";
 import Bookings from "./components/Bookings";
+import BookingDetails from "./components/BookingDetails";
 import Settings from "./components/Settings";
 
-// 1. Protection Wrapper (Checks if logged in)
+// 1. Protection Wrapper
 const RequireAuth = ({ children }) => {
   const { user, loading } = useAuth();
 
-  if (loading) return <div className="h-screen flex items-center justify-center dark:bg-slate-900 dark:text-white">Loading...</div>;
-  
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center dark:bg-slate-900 dark:text-white">
+        Loading...
+      </div>
+    );
+  }
+
   if (!user) return <Navigate to="/login" replace />;
 
   return children;
 };
 
-// 2. Main App with Sidebar Layout
+// 2. Main App
 export default function App() {
-  
-  // Initialize Theme
   useEffect(() => {
-    if (localStorage.getItem('theme') === 'dark') {
-      document.documentElement.classList.add('dark');
+    if (localStorage.getItem("theme") === "dark") {
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
   }, []);
 
@@ -36,18 +41,25 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public Route: Login */}
+          {/* Public */}
           <Route path="/login" element={<Login />} />
-          
-          {/* Protected Admin Area (Sidebar Layout) */}
-          <Route path="/" element={
-            <RequireAuth>
-              <AdminLayout /> 
-            </RequireAuth>
-          }>
-            {/* Child Pages inside the Sidebar */}
-            <Route index element={<DashboardHome />} />    {/* Default: Dashboard */}
+
+          {/* Protected */}
+          <Route
+            path="/"
+            element={
+              <RequireAuth>
+                <AdminLayout />
+              </RequireAuth>
+            }
+          >
+            <Route index element={<DashboardHome />} />
+
+            {/* Bookings */}
             <Route path="bookings" element={<Bookings />} />
+            <Route path="bookings/:id" element={<BookingDetails />} />
+
+            {/* Settings */}
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
@@ -55,4 +67,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Building2,
@@ -13,11 +13,12 @@ import {
   Calculator
 } from "lucide-react";
 
-// API BASE (same-origin safe)
+// SAME-ORIGIN API (CORRECT)
 const API_URL = "";
 
-export default function BookingDetails({ bookingId, onBack }) {
+export default function BookingDetails() {
   const navigate = useNavigate();
+  const { id: bookingId } = useParams(); // ✅ ID FROM URL
 
   const [booking, setBooking] = useState(null);
   const [expenses, setExpenses] = useState([]);
@@ -35,14 +36,10 @@ export default function BookingDetails({ bookingId, onBack }) {
   const [editExpenseData, setEditExpenseData] = useState({});
 
   /* =========================
-     SAFE BACK HANDLER
+     BACK HANDLER (ALWAYS SAFE)
   ========================= */
   const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else {
-      navigate("/bookings");
-    }
+    navigate("/bookings");
   };
 
   /* =========================
@@ -62,7 +59,7 @@ export default function BookingDetails({ bookingId, onBack }) {
   const fetchData = async () => {
     try {
       const token = localStorage.getItem("token");
-      if (!token) return;
+      if (!token || !bookingId) return;
 
       const headers = { Authorization: `Bearer ${token}` };
 
@@ -84,7 +81,7 @@ export default function BookingDetails({ bookingId, onBack }) {
   };
 
   useEffect(() => {
-    if (bookingId) fetchData();
+    fetchData();
   }, [bookingId]);
 
   /* =========================
@@ -155,15 +152,19 @@ export default function BookingDetails({ bookingId, onBack }) {
       method: "DELETE",
       headers: getAuthHeaders()
     });
-    handleBack();
+    navigate("/bookings");
   };
 
   if (!booking) {
-    return <div className="p-10 dark:text-white">Loading booking details…</div>;
+    return (
+      <div className="p-10 text-center dark:text-white">
+        Loading booking details…
+      </div>
+    );
   }
 
   /* =========================
-     CALCULATIONS
+     CALCULATIONS (UNCHANGED)
   ========================= */
   const clientPending =
     booking.totalClientPayment - booking.clientPaidAmount;
@@ -186,7 +187,7 @@ export default function BookingDetails({ bookingId, onBack }) {
     "p-2 border border-slate-200 dark:border-slate-700 rounded-lg dark:bg-slate-900 dark:text-white";
 
   /* =========================
-     RENDER
+     RENDER (UI UNCHANGED)
   ========================= */
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto pb-32">
@@ -207,8 +208,7 @@ export default function BookingDetails({ bookingId, onBack }) {
         </button>
       </div>
 
-      {/* EVERYTHING ELSE (UI)Attach your existing JSX below if needed */}
-      {/* Your remaining UI sections are SAFE and unchanged */}
+      {/* ⬇️ KEEP YOUR EXISTING UI JSX BELOW THIS ⬇️ */}
     </div>
   );
 }
