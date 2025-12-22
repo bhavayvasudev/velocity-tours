@@ -14,7 +14,8 @@ import {
   Calendar,
   Plane,
   FileText,
-  CreditCard
+  CreditCard,
+  AlertTriangle // Added for error icon
 } from "lucide-react";
 
 // ✅ LIVE BACKEND URL
@@ -26,6 +27,10 @@ export default function BookingDetails() {
 
   const [booking, setBooking] = useState(null);
   const [expenses, setExpenses] = useState([]);
+  
+  // 🔴 ADDED ERROR & LOADING STATE
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [isEditingBooking, setIsEditingBooking] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
@@ -79,27 +84,53 @@ export default function BookingDetails() {
     };
   };
 
-  /* ================= FETCH DATA ================= */
+  /* ================= FETCH DATA (FIXED) ================= */
   const fetchData = async () => {
     try {
+      setLoading(true); // Start Loading
+      setError(null);   // Clear Errors
+
       const token = localStorage.getItem("token");
-      if (!token || !bookingId) return;
+      if (!token) {
+        setError("You are not logged in.");
+        setLoading(false);
+        return;
+      }
+
+      if (!bookingId) {
+        setError("Invalid Booking ID.");
+        setLoading(false);
+        return;
+      }
 
       const headers = { Authorization: `Bearer ${token}` };
 
+      // Fetch Booking & Expenses
       const [resBooking, resExpenses] = await Promise.all([
         fetch(`${API_URL}/api/bookings/${bookingId}`, { headers }),
         fetch(`${API_URL}/api/expenses/booking/${bookingId}`, { headers })
       ]);
 
-      if (!resBooking.ok || !resExpenses.ok) return;
+      // Handle Errors
+      if (!resBooking.ok) {
+        if (resBooking.status === 404) throw new Error("Booking not found");
+        throw new Error("Failed to load booking details");
+      }
+      if (!resExpenses.ok) {
+        throw new Error("Failed to load expenses");
+      }
 
       const bookingData = await resBooking.json();
+      const expensesData = await resExpenses.json();
+
       setBooking(bookingData);
-      setExpenses(await resExpenses.json());
+      setExpenses(expensesData);
       setEditBookingData(bookingData);
     } catch (err) {
       console.error(err);
+      setError(err.message || "Something went wrong");
+    } finally {
+      setLoading(false); // Stop Loading
     }
   };
 
@@ -164,8 +195,36 @@ export default function BookingDetails() {
     navigate("/bookings");
   };
 
+  /* ================= RENDER LOADING / ERROR ================= */
+  
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-slate-500">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+        <p>Loading Details...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-red-500">
+        <AlertTriangle size={48} className="mb-4" />
+        <h2 className="text-xl font-bold">Error</h2>
+        <p>{error}</p>
+        <button 
+          onClick={() => navigate("/bookings")}
+          className="mt-6 bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-2 rounded-lg"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
+  if (!booking) return null; // Should be handled by loading/error, but safe guard
+
   /* ================= CALCULATIONS ================= */
-  if (!booking) return <div className="p-10 text-center text-slate-500">Loading...</div>;
 
   // 1. Client Stats
   const clientPending = booking.totalClientPayment - booking.clientPaidAmount;
@@ -183,12 +242,12 @@ export default function BookingDetails() {
 
   // 3. Profit & Tax (18% GST Logic)
   const netProfit = booking.totalClientPayment - totalVendorCost;
-  const profitAfterTax = Math.round(netProfit / 1.18); // Exclude 18% Tax
+  const profitAfterTax = Math.round(netProfit / 1.18);
   const totalTax = netProfit - profitAfterTax;
-  const cgst = totalTax / 2; // 9%
-  const sgst = totalTax / 2; // 9%
+  const cgst = totalTax / 2;
+  const sgst = totalTax / 2;
 
-  /* ================= RENDER ================= */
+  /* ================= MAIN RENDER ================= */
   return (
     <div className="p-6 md:p-10 pb-32 max-w-7xl mx-auto space-y-6">
       
