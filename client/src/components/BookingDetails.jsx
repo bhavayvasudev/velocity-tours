@@ -17,7 +17,7 @@ import {
   CreditCard
 } from "lucide-react";
 
-// ✅ LIVE BACKEND URL (KEPT EXACTLY AS PROVIDED)
+// ✅ LIVE BACKEND URL (Your Working URL)
 const API_URL = "https://velocity-tours.vercel.app";
 
 export default function BookingDetails() {
@@ -49,7 +49,7 @@ export default function BookingDetails() {
     }).format(amount);
   };
 
-  // 🎨 SMART ICONS HELPER
+  // 🎨 UI HELPER: Smart Icons
   const getCategoryIcon = (name) => {
     const lower = name.toLowerCase();
     if (lower.includes("air") || lower.includes("flight") || lower.includes("ticket") || lower.includes("indigo") || lower.includes("vistara")) {
@@ -64,6 +64,7 @@ export default function BookingDetails() {
     return <Wallet size={18} className="text-slate-500" />;
   };
 
+  // 🎨 UI HELPER: Icon Background Colors
   const getCategoryColor = (name) => {
     const lower = name.toLowerCase();
     if (lower.includes("air") || lower.includes("flight")) return "bg-blue-100 dark:bg-blue-900/30";
@@ -80,7 +81,7 @@ export default function BookingDetails() {
     };
   };
 
-  /* ================= FETCH DATA (KEPT EXACTLY AS PROVIDED) ================= */
+  /* ================= FETCH DATA (YOUR EXACT LOGIC) ================= */
   const fetchData = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -113,7 +114,7 @@ export default function BookingDetails() {
     fetchData();
   }, [bookingId]);
 
-  /* ================= HANDLERS (KEPT EXACTLY AS PROVIDED) ================= */
+  /* ================= HANDLERS (YOUR EXACT LOGIC) ================= */
   const handleUpdateBooking = async () => {
     await fetch(`${API_URL}/api/bookings/${bookingId}`, {
       method: "PUT",
@@ -173,30 +174,31 @@ export default function BookingDetails() {
   /* ================= CALCULATIONS (UI TWEAKED) ================= */
   if (!booking) return <div className="p-10 text-center text-slate-500">Loading...</div>;
 
-  // 1. Client Stats
   const clientPending = booking.totalClientPayment - booking.clientPaidAmount;
+  const totalVendorCost = expenses.reduce((s, e) => s + e.amount, 0);
+  const totalVendorPaid = expenses.reduce((s, e) => s + e.paidAmount, 0);
+  const totalVendorPending = totalVendorCost - totalVendorPaid; // Added for progress bar
+  const netProfit = booking.totalClientPayment - totalVendorCost;
+  
+  // Tax Logic
+  const profitAfterTaxRaw = netProfit / 1.18;
+  const profitAfterTax = Math.round(profitAfterTaxRaw);
+  const taxAmount = netProfit - profitAfterTax;
+  const cgst = taxAmount / 2; // Split Tax
+  const sgst = taxAmount / 2; // Split Tax
+
+  // Progress Percentages
   const clientProgress = booking.totalClientPayment > 0 
     ? (booking.clientPaidAmount / booking.totalClientPayment) * 100 
     : 0;
-
-  // 2. Vendor Stats
-  const totalVendorCost = expenses.reduce((s, e) => s + e.amount, 0);
-  const totalVendorPaid = expenses.reduce((s, e) => s + e.paidAmount, 0);
-  const totalVendorPending = totalVendorCost - totalVendorPaid;
+    
   const vendorProgress = totalVendorCost > 0
     ? (totalVendorPaid / totalVendorCost) * 100
     : 0;
 
-  // 3. Profit & Tax (18% GST Logic)
-  const netProfit = booking.totalClientPayment - totalVendorCost;
-  const profitAfterTax = Math.round(netProfit / 1.18); 
-  const totalTax = netProfit - profitAfterTax;
-  const cgst = totalTax / 2; // 9%
-  const sgst = totalTax / 2; // 9%
-
-  /* ================= RENDER ================= */
+  /* ================= RENDER (NEW UI) ================= */
   return (
-    <div className="p-6 md:p-10 pb-32 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 md:p-10 pb-32 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       
       {/* 1. HEADER */}
       <div className="flex justify-between items-center">
@@ -215,7 +217,7 @@ export default function BookingDetails() {
               ) : booking.name}
               
               {!isEditingBooking && (
-                <button onClick={() => setIsEditingBooking(true)} className="text-slate-400 hover:text-blue-600">
+                <button onClick={() => setIsEditingBooking(true)} className="text-slate-400 hover:text-blue-600 transition">
                   <Edit2 size={18} />
                 </button>
               )}
@@ -259,7 +261,7 @@ export default function BookingDetails() {
               </span>
             </div>
 
-            {/* 🟢 PROGRESS BAR */}
+            {/* PROGRESS BAR */}
             <div className="w-full h-3 bg-slate-100 dark:bg-slate-700 rounded-full mb-6 overflow-hidden">
               <div 
                 className={`h-full rounded-full transition-all duration-700 ${clientProgress === 100 ? 'bg-green-500' : 'bg-blue-500'}`}
@@ -325,7 +327,7 @@ export default function BookingDetails() {
                    </div>
                    <div className="flex justify-between items-center text-xs font-bold text-slate-500 pt-1 border-t border-slate-200 dark:border-slate-700 mt-1">
                       <span>Total Tax Paid</span>
-                      <span>{formatMoney(totalTax)}</span>
+                      <span>{formatMoney(taxAmount)}</span>
                    </div>
                  </div>
               </div>
@@ -353,7 +355,7 @@ export default function BookingDetails() {
                  </button>
                </div>
                
-               {/* 🟠 VENDOR PROGRESS BAR */}
+               {/* VENDOR PROGRESS BAR */}
                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-orange-400 rounded-full" 
@@ -373,7 +375,7 @@ export default function BookingDetails() {
                 expenses.map((expense) => (
                   <div key={expense._id} className="group relative flex items-center gap-4 p-3 rounded-xl border border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
                     
-                    {/* 🎨 SMART ICON */}
+                    {/* ICON BOX */}
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${getCategoryColor(expense.vendorName)}`}>
                       {getCategoryIcon(expense.vendorName)}
                     </div>
