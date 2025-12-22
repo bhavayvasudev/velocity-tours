@@ -1,6 +1,21 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Calendar, Filter, X, Search, Briefcase, Download, ChevronDown, FileText, CreditCard, Loader2 } from "lucide-react";
+import { 
+  Plus, 
+  Calendar, 
+  Filter, 
+  X, 
+  Search, 
+  Briefcase, 
+  Download, 
+  ChevronDown, 
+  FileText, 
+  CreditCard, 
+  Loader2,
+  Plane,      // ✈️ Added
+  Building2,  // 🏨 Added
+  Globe       // 🌍 Added
+} from "lucide-react";
 import * as XLSX from "xlsx";
 
 // ✅ LIVE BACKEND URL
@@ -48,6 +63,21 @@ export default function Bookings() {
       day: 'numeric',
       year: 'numeric'
     });
+  };
+
+  // 🎨 DYNAMIC ICON LOGIC
+  const getTripIcon = (name) => {
+    const lower = name.toLowerCase();
+    if (lower.includes("air") || lower.includes("flight") || lower.includes("ticket")) {
+      return <Plane size={20} />;
+    }
+    if (lower.includes("hotel") || lower.includes("room") || lower.includes("stay")) {
+      return <Building2 size={20} />;
+    }
+    if (lower.includes("visa") || lower.includes("earth") || lower.includes("global") || lower.includes("world")) {
+      return <Globe size={20} />;
+    }
+    return <Calendar size={20} />; // Default
   };
 
   // Tax Calculation (Inclusive 18%)
@@ -468,8 +498,9 @@ export default function Bookings() {
                 className="flex items-center justify-between p-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors group"
               >
                 <div className="flex items-center gap-4">
+                  {/* 🎨 DYNAMIC ICON */}
                   <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
-                    <Calendar size={20} />
+                    {getTripIcon(b.name)}
                   </div>
                   <div>
                     <h3 className="font-bold text-slate-800 dark:text-white text-lg">
