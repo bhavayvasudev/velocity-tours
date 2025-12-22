@@ -14,9 +14,7 @@ import {
   Calendar,
   Plane,
   FileText,
-  CreditCard,
-  AlertTriangle,
-  Loader2
+  CreditCard
 } from "lucide-react";
 
 // ✅ LIVE BACKEND URL
@@ -26,13 +24,9 @@ export default function BookingDetails() {
   const navigate = useNavigate();
   const { id: bookingId } = useParams();
 
-  // Data State
   const [booking, setBooking] = useState(null);
   const [expenses, setExpenses] = useState([]);
 
-  // UI State
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [isEditingBooking, setIsEditingBooking] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
@@ -85,16 +79,11 @@ export default function BookingDetails() {
     };
   };
 
-  /* ================= FETCH DATA (FIXED) ================= */
+  /* ================= FETCH DATA ================= */
   const fetchData = async () => {
     try {
-      // Don't reset loading if we are just refreshing data after an edit
-      if (!booking) setLoading(true); 
-      setError(null);
-
       const token = localStorage.getItem("token");
-      if (!token) throw new Error("Please log in again.");
-      if (!bookingId) throw new Error("Invalid Booking ID.");
+      if (!token || !bookingId) return;
 
       const headers = { Authorization: `Bearer ${token}` };
 
@@ -103,22 +92,14 @@ export default function BookingDetails() {
         fetch(`${API_URL}/api/expenses/booking/${bookingId}`, { headers })
       ]);
 
-      if (!resBooking.ok) {
-        if (resBooking.status === 404) throw new Error("Booking not found.");
-        throw new Error("Failed to load booking.");
-      }
-      
-      const bookingData = await resBooking.json();
-      const expensesData = resExpenses.ok ? await resExpenses.json() : [];
+      if (!resBooking.ok || !resExpenses.ok) return;
 
+      const bookingData = await resBooking.json();
       setBooking(bookingData);
-      setExpenses(expensesData);
+      setExpenses(await resExpenses.json());
       setEditBookingData(bookingData);
     } catch (err) {
       console.error(err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -128,118 +109,71 @@ export default function BookingDetails() {
 
   /* ================= HANDLERS ================= */
   const handleUpdateBooking = async () => {
-    try {
-      await fetch(`${API_URL}/api/bookings/${bookingId}`, {
-        method: "PUT",
-        headers: getAuthHeaders(),
-        body: JSON.stringify(editBookingData)
-      });
-      setIsEditingBooking(false);
-      fetchData();
-    } catch (error) {
-      alert("Failed to update booking");
-    }
+    await fetch(`${API_URL}/api/bookings/${bookingId}`, {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(editBookingData)
+    });
+    setIsEditingBooking(false);
+    fetchData();
   };
 
   const handleUpdateExpense = async (expenseId) => {
-    try {
-      await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-        method: "PUT",
-        headers: getAuthHeaders(),
-        body: JSON.stringify(editExpenseData)
-      });
-      setEditingExpenseId(null);
-      fetchData();
-    } catch (error) {
-      alert("Failed to update expense");
-    }
+    await fetch(`${API_URL}/api/expenses/${expenseId}`, {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(editExpenseData)
+    });
+    setEditingExpenseId(null);
+    fetchData();
   };
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
-    try {
-      await fetch(`${API_URL}/api/expenses`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          bookingId,
-          vendorName: newExpenseData.vendorName,
-          amount: Number(newExpenseData.amount),
-          paidAmount: Number(newExpenseData.paidAmount || 0),
-          date: new Date()
-        })
-      });
-      setShowExpenseForm(false);
-      setNewExpenseData({ vendorName: "", amount: "", paidAmount: "" });
-      fetchData();
-    } catch (error) {
-      alert("Failed to add expense");
-    }
+    await fetch(`${API_URL}/api/expenses`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        bookingId,
+        vendorName: newExpenseData.vendorName,
+        amount: Number(newExpenseData.amount),
+        paidAmount: Number(newExpenseData.paidAmount || 0),
+        date: new Date()
+      })
+    });
+    setShowExpenseForm(false);
+    setNewExpenseData({ vendorName: "", amount: "", paidAmount: "" });
+    fetchData();
   };
 
   const handleDeleteExpense = async (expenseId) => {
     if (!window.confirm("Delete this expense?")) return;
-    try {
-      await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-        method: "DELETE",
-        headers: getAuthHeaders()
-      });
-      fetchData();
-    } catch (error) {
-      alert("Failed to delete expense");
-    }
+    await fetch(`${API_URL}/api/expenses/${expenseId}`, {
+      method: "DELETE",
+      headers: getAuthHeaders()
+    });
+    fetchData();
   };
 
   const handleDeleteBooking = async () => {
     if (!window.confirm("Delete this booking permanently?")) return;
-    try {
-      await fetch(`${API_URL}/api/bookings/${bookingId}`, {
-        method: "DELETE",
-        headers: getAuthHeaders()
-      });
-      navigate("/bookings");
-    } catch (error) {
-      alert("Failed to delete booking");
-    }
+    await fetch(`${API_URL}/api/bookings/${bookingId}`, {
+      method: "DELETE",
+      headers: getAuthHeaders()
+    });
+    navigate("/bookings");
   };
 
-  /* ================= LOADING / ERROR STATES ================= */
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-slate-500">
-        <Loader2 size={40} className="animate-spin text-blue-600 mb-4" />
-        <p>Loading Details...</p>
-      </div>
-    );
-  }
+  /* ================= CALCULATIONS ================= */
+  if (!booking) return <div className="p-10 text-center text-slate-500">Loading...</div>;
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-slate-800 dark:text-white">
-        <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-2xl flex flex-col items-center max-w-sm text-center">
-          <AlertTriangle size={48} className="text-red-500 mb-4" />
-          <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
-          <p className="text-slate-500 dark:text-slate-400 mb-6">{error}</p>
-          <button 
-            onClick={() => navigate("/bookings")}
-            className="bg-white border border-slate-200 text-slate-700 px-6 py-2 rounded-lg hover:bg-slate-50 transition"
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  /* ================= CALCULATIONS (18% TAX) ================= */
-  
-  // 1. Client Progress
+  // 1. Client Stats
   const clientPending = booking.totalClientPayment - booking.clientPaidAmount;
   const clientProgress = booking.totalClientPayment > 0 
     ? (booking.clientPaidAmount / booking.totalClientPayment) * 100 
     : 0;
 
-  // 2. Vendor Progress
+  // 2. Vendor Stats
   const totalVendorCost = expenses.reduce((s, e) => s + e.amount, 0);
   const totalVendorPaid = expenses.reduce((s, e) => s + e.paidAmount, 0);
   const totalVendorPending = totalVendorCost - totalVendorPaid;
@@ -247,15 +181,14 @@ export default function BookingDetails() {
     ? (totalVendorPaid / totalVendorCost) * 100
     : 0;
 
-  // 3. Profit & Tax (Inclusive 18% GST)
+  // 3. Profit & Tax (18% GST Logic)
   const netProfit = booking.totalClientPayment - totalVendorCost;
-  // Formula: Amount / 1.18 = Base Amount
-  const profitAfterTax = Math.round(netProfit / 1.18); 
-  const totalTax = netProfit - profitAfterTax;
+  const profitAfterTax = Math.round(netProfit / 1.18); // Exclude 18% Tax
   
-  // Split 18% into 9% + 9%
-  const cgst = totalTax / 2;
-  const sgst = totalTax / 2;
+  // New Breakdown Logic
+  const totalTax = netProfit - profitAfterTax;
+  const cgst = totalTax / 2; // 9%
+  const sgst = totalTax / 2; // 9%
 
   /* ================= RENDER ================= */
   return (
@@ -271,19 +204,19 @@ export default function BookingDetails() {
             <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
               {isEditingBooking ? (
                 <input 
-                  className="bg-transparent border-b-2 border-blue-500 focus:outline-none min-w-[200px]"
+                  className="bg-transparent border-b-2 border-blue-500 focus:outline-none"
                   value={editBookingData.name}
                   onChange={(e) => setEditBookingData({...editBookingData, name: e.target.value})}
                 />
               ) : booking.name}
               
               {!isEditingBooking && (
-                <button onClick={() => setIsEditingBooking(true)} className="text-slate-400 hover:text-blue-600 transition">
+                <button onClick={() => setIsEditingBooking(true)} className="text-slate-400 hover:text-blue-600">
                   <Edit2 size={18} />
                 </button>
               )}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-1 text-sm">
+            <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-1">
               <Calendar size={14} /> 
               {new Date(booking.date).toLocaleDateString('en-IN', { dateStyle: 'long' })}
               <span className="mx-1">•</span>
@@ -294,11 +227,11 @@ export default function BookingDetails() {
 
         <div className="flex gap-2">
           {isEditingBooking ? (
-            <button onClick={handleUpdateBooking} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm hover:bg-green-700 transition">
+            <button onClick={handleUpdateBooking} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2">
               <Save size={18} /> Save
             </button>
           ) : (
-            <button onClick={handleDeleteBooking} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-4 py-2 rounded-lg flex items-center gap-2 transition">
+            <button onClick={handleDeleteBooking} className="text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg flex items-center gap-2 transition">
               <Trash2 size={18} /> Delete
             </button>
           )}
@@ -341,7 +274,7 @@ export default function BookingDetails() {
                  {isEditingBooking ? (
                    <input 
                      type="number"
-                     className="w-full mt-1 bg-white dark:bg-slate-800 p-1 rounded border dark:border-slate-600 dark:text-white"
+                     className="w-full mt-1 bg-white p-1 rounded border dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                      value={editBookingData.clientPaidAmount}
                      onChange={(e) => setEditBookingData({...editBookingData, clientPaidAmount: Number(e.target.value)})}
                    />
@@ -458,8 +391,8 @@ export default function BookingDetails() {
                                 value={editExpenseData.amount}
                                 onChange={(e) => setEditExpenseData({...editExpenseData, amount: Number(e.target.value)})}
                               />
-                              <button onClick={() => handleUpdateExpense(expense._id)} className="bg-green-100 text-green-700 p-2 rounded hover:bg-green-200"><Save size={14}/></button>
-                              <button onClick={() => setEditingExpenseId(null)} className="bg-red-100 text-red-700 p-2 rounded hover:bg-red-200"><X size={14}/></button>
+                              <button onClick={() => handleUpdateExpense(expense._id)} className="bg-green-100 text-green-700 p-2 rounded"><Save size={14}/></button>
+                              <button onClick={() => setEditingExpenseId(null)} className="bg-red-100 text-red-700 p-2 rounded"><X size={14}/></button>
                             </div>
                          </div>
                       ) : (
