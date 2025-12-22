@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Calendar, Filter, X } from "lucide-react";
 
-// SAME-ORIGIN API (Vercel safe)
-const API_URL = "";
+// ✅ FIX: Use the Full Backend URL (Same as your Login)
+const API_URL = "https://velocity-tours.vercel.app";
 
 export default function Bookings() {
   const navigate = useNavigate();
@@ -39,19 +39,24 @@ export default function Bookings() {
       const token = localStorage.getItem("token");
       if (!token) return;
 
-      const res = await fetch("/api/bookings", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      try {
+        // ✅ FIX: Use API_URL here
+        const res = await fetch(`${API_URL}/api/bookings`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-      if (!res.ok) {
-        console.error("Failed to fetch bookings");
-        return;
+        if (!res.ok) {
+          console.error("Failed to fetch bookings");
+          return;
+        }
+
+        const data = await res.json();
+        setBookings(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Error fetching bookings:", error);
       }
-
-      const data = await res.json();
-      setBookings(Array.isArray(data) ? data : []);
     };
 
     fetchBookings();
@@ -62,33 +67,41 @@ export default function Bookings() {
     e.preventDefault();
     const token = localStorage.getItem("token");
 
-    const res = await fetch("/api/bookings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        ...formData,
-        totalClientPayment: Number(formData.totalClientPayment),
-        clientPaidAmount: 0,
-      }),
-    });
+    try {
+      // ✅ FIX: Use API_URL here too
+      const res = await fetch(`${API_URL}/api/bookings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...formData,
+          totalClientPayment: Number(formData.totalClientPayment),
+          clientPaidAmount: 0,
+        }),
+      });
 
-    if (!res.ok) return;
+      if (!res.ok) {
+        alert("Failed to create booking");
+        return;
+      }
 
-    const newBooking = await res.json();
-    setBookings([newBooking, ...bookings]);
-    setShowForm(false);
-    setFormData({
-      name: "",
-      clientName: "",
-      totalClientPayment: "",
-      date: new Date().toISOString().split("T")[0],
-    });
+      const newBooking = await res.json();
+      setBookings([newBooking, ...bookings]);
+      setShowForm(false);
+      setFormData({
+        name: "",
+        clientName: "",
+        totalClientPayment: "",
+        date: new Date().toISOString().split("T")[0],
+      });
+    } catch (error) {
+      console.error("Error creating booking:", error);
+    }
   };
 
-  /* ================= FILTER LOGIC (FIXED) ================= */
+  /* ================= FILTER LOGIC ================= */
   const filteredBookings = bookings.filter((b) => {
     if (filterType === "all") return true;
 
@@ -114,7 +127,13 @@ export default function Bookings() {
         Q4: [0, 2],
       };
       const [start, end] = ranges[selectedQuarter];
-      const fy = selectedQuarter === "Q4" ? selectedYear + 1 : selectedYear;
+      // Adjust year for Q4 (Jan-Mar is in the next calendar year)
+      const fy = selectedQuarter === "Q4" && m <= 2 ? selectedYear + 1 : selectedYear;
+      
+      // If Q4 is selected (Jan-Mar), we need to handle the year boundary carefully
+      if (selectedQuarter === "Q4") {
+         return (m >= 0 && m <= 2 && y === selectedYear + 1);
+      }
       return m >= start && m <= end && y === fy;
     }
 
