@@ -15,7 +15,8 @@ import {
   Plane,
   FileText,
   CreditCard,
-  AlertTriangle // Added for error icon
+  AlertTriangle,
+  Loader2
 } from "lucide-react";
 
 // ✅ LIVE BACKEND URL
@@ -25,13 +26,13 @@ export default function BookingDetails() {
   const navigate = useNavigate();
   const { id: bookingId } = useParams();
 
+  // Data State
   const [booking, setBooking] = useState(null);
   const [expenses, setExpenses] = useState([]);
-  
-  // 🔴 ADDED ERROR & LOADING STATE
+
+  // UI State
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const [isEditingBooking, setIsEditingBooking] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
@@ -87,50 +88,37 @@ export default function BookingDetails() {
   /* ================= FETCH DATA (FIXED) ================= */
   const fetchData = async () => {
     try {
-      setLoading(true); // Start Loading
-      setError(null);   // Clear Errors
+      // Don't reset loading if we are just refreshing data after an edit
+      if (!booking) setLoading(true); 
+      setError(null);
 
       const token = localStorage.getItem("token");
-      if (!token) {
-        setError("You are not logged in.");
-        setLoading(false);
-        return;
-      }
-
-      if (!bookingId) {
-        setError("Invalid Booking ID.");
-        setLoading(false);
-        return;
-      }
+      if (!token) throw new Error("Please log in again.");
+      if (!bookingId) throw new Error("Invalid Booking ID.");
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      // Fetch Booking & Expenses
       const [resBooking, resExpenses] = await Promise.all([
         fetch(`${API_URL}/api/bookings/${bookingId}`, { headers }),
         fetch(`${API_URL}/api/expenses/booking/${bookingId}`, { headers })
       ]);
 
-      // Handle Errors
       if (!resBooking.ok) {
-        if (resBooking.status === 404) throw new Error("Booking not found");
-        throw new Error("Failed to load booking details");
+        if (resBooking.status === 404) throw new Error("Booking not found.");
+        throw new Error("Failed to load booking.");
       }
-      if (!resExpenses.ok) {
-        throw new Error("Failed to load expenses");
-      }
-
+      
       const bookingData = await resBooking.json();
-      const expensesData = await resExpenses.json();
+      const expensesData = resExpenses.ok ? await resExpenses.json() : [];
 
       setBooking(bookingData);
       setExpenses(expensesData);
       setEditBookingData(bookingData);
     } catch (err) {
       console.error(err);
-      setError(err.message || "Something went wrong");
+      setError(err.message);
     } finally {
-      setLoading(false); // Stop Loading
+      setLoading(false);
     }
   };
 
@@ -140,67 +128,86 @@ export default function BookingDetails() {
 
   /* ================= HANDLERS ================= */
   const handleUpdateBooking = async () => {
-    await fetch(`${API_URL}/api/bookings/${bookingId}`, {
-      method: "PUT",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(editBookingData)
-    });
-    setIsEditingBooking(false);
-    fetchData();
+    try {
+      await fetch(`${API_URL}/api/bookings/${bookingId}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(editBookingData)
+      });
+      setIsEditingBooking(false);
+      fetchData();
+    } catch (error) {
+      alert("Failed to update booking");
+    }
   };
 
   const handleUpdateExpense = async (expenseId) => {
-    await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-      method: "PUT",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(editExpenseData)
-    });
-    setEditingExpenseId(null);
-    fetchData();
+    try {
+      await fetch(`${API_URL}/api/expenses/${expenseId}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(editExpenseData)
+      });
+      setEditingExpenseId(null);
+      fetchData();
+    } catch (error) {
+      alert("Failed to update expense");
+    }
   };
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
-    await fetch(`${API_URL}/api/expenses`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify({
-        bookingId,
-        vendorName: newExpenseData.vendorName,
-        amount: Number(newExpenseData.amount),
-        paidAmount: Number(newExpenseData.paidAmount || 0),
-        date: new Date()
-      })
-    });
-    setShowExpenseForm(false);
-    setNewExpenseData({ vendorName: "", amount: "", paidAmount: "" });
-    fetchData();
+    try {
+      await fetch(`${API_URL}/api/expenses`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          bookingId,
+          vendorName: newExpenseData.vendorName,
+          amount: Number(newExpenseData.amount),
+          paidAmount: Number(newExpenseData.paidAmount || 0),
+          date: new Date()
+        })
+      });
+      setShowExpenseForm(false);
+      setNewExpenseData({ vendorName: "", amount: "", paidAmount: "" });
+      fetchData();
+    } catch (error) {
+      alert("Failed to add expense");
+    }
   };
 
   const handleDeleteExpense = async (expenseId) => {
     if (!window.confirm("Delete this expense?")) return;
-    await fetch(`${API_URL}/api/expenses/${expenseId}`, {
-      method: "DELETE",
-      headers: getAuthHeaders()
-    });
-    fetchData();
+    try {
+      await fetch(`${API_URL}/api/expenses/${expenseId}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
+      fetchData();
+    } catch (error) {
+      alert("Failed to delete expense");
+    }
   };
 
   const handleDeleteBooking = async () => {
     if (!window.confirm("Delete this booking permanently?")) return;
-    await fetch(`${API_URL}/api/bookings/${bookingId}`, {
-      method: "DELETE",
-      headers: getAuthHeaders()
-    });
-    navigate("/bookings");
+    try {
+      await fetch(`${API_URL}/api/bookings/${bookingId}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
+      navigate("/bookings");
+    } catch (error) {
+      alert("Failed to delete booking");
+    }
   };
 
-  /* ================= RENDER LOADING / ERROR ================= */
-  
+  /* ================= LOADING / ERROR STATES ================= */
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen text-slate-500">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+        <Loader2 size={40} className="animate-spin text-blue-600 mb-4" />
         <p>Loading Details...</p>
       </div>
     );
@@ -208,31 +215,31 @@ export default function BookingDetails() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-red-500">
-        <AlertTriangle size={48} className="mb-4" />
-        <h2 className="text-xl font-bold">Error</h2>
-        <p>{error}</p>
-        <button 
-          onClick={() => navigate("/bookings")}
-          className="mt-6 bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-2 rounded-lg"
-        >
-          Go Back
-        </button>
+      <div className="flex flex-col items-center justify-center min-h-screen text-slate-800 dark:text-white">
+        <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-2xl flex flex-col items-center max-w-sm text-center">
+          <AlertTriangle size={48} className="text-red-500 mb-4" />
+          <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
+          <p className="text-slate-500 dark:text-slate-400 mb-6">{error}</p>
+          <button 
+            onClick={() => navigate("/bookings")}
+            className="bg-white border border-slate-200 text-slate-700 px-6 py-2 rounded-lg hover:bg-slate-50 transition"
+          >
+            Go Back
+          </button>
+        </div>
       </div>
     );
   }
 
-  if (!booking) return null; // Should be handled by loading/error, but safe guard
-
-  /* ================= CALCULATIONS ================= */
-
-  // 1. Client Stats
+  /* ================= CALCULATIONS (18% TAX) ================= */
+  
+  // 1. Client Progress
   const clientPending = booking.totalClientPayment - booking.clientPaidAmount;
   const clientProgress = booking.totalClientPayment > 0 
     ? (booking.clientPaidAmount / booking.totalClientPayment) * 100 
     : 0;
 
-  // 2. Vendor Stats
+  // 2. Vendor Progress
   const totalVendorCost = expenses.reduce((s, e) => s + e.amount, 0);
   const totalVendorPaid = expenses.reduce((s, e) => s + e.paidAmount, 0);
   const totalVendorPending = totalVendorCost - totalVendorPaid;
@@ -240,16 +247,19 @@ export default function BookingDetails() {
     ? (totalVendorPaid / totalVendorCost) * 100
     : 0;
 
-  // 3. Profit & Tax (18% GST Logic)
+  // 3. Profit & Tax (Inclusive 18% GST)
   const netProfit = booking.totalClientPayment - totalVendorCost;
-  const profitAfterTax = Math.round(netProfit / 1.18);
+  // Formula: Amount / 1.18 = Base Amount
+  const profitAfterTax = Math.round(netProfit / 1.18); 
   const totalTax = netProfit - profitAfterTax;
+  
+  // Split 18% into 9% + 9%
   const cgst = totalTax / 2;
   const sgst = totalTax / 2;
 
-  /* ================= MAIN RENDER ================= */
+  /* ================= RENDER ================= */
   return (
-    <div className="p-6 md:p-10 pb-32 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 md:p-10 pb-32 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       
       {/* 1. HEADER */}
       <div className="flex justify-between items-center">
@@ -261,19 +271,19 @@ export default function BookingDetails() {
             <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
               {isEditingBooking ? (
                 <input 
-                  className="bg-transparent border-b-2 border-blue-500 focus:outline-none"
+                  className="bg-transparent border-b-2 border-blue-500 focus:outline-none min-w-[200px]"
                   value={editBookingData.name}
                   onChange={(e) => setEditBookingData({...editBookingData, name: e.target.value})}
                 />
               ) : booking.name}
               
               {!isEditingBooking && (
-                <button onClick={() => setIsEditingBooking(true)} className="text-slate-400 hover:text-blue-600">
+                <button onClick={() => setIsEditingBooking(true)} className="text-slate-400 hover:text-blue-600 transition">
                   <Edit2 size={18} />
                 </button>
               )}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-1">
+            <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-1 text-sm">
               <Calendar size={14} /> 
               {new Date(booking.date).toLocaleDateString('en-IN', { dateStyle: 'long' })}
               <span className="mx-1">•</span>
@@ -284,11 +294,11 @@ export default function BookingDetails() {
 
         <div className="flex gap-2">
           {isEditingBooking ? (
-            <button onClick={handleUpdateBooking} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+            <button onClick={handleUpdateBooking} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm hover:bg-green-700 transition">
               <Save size={18} /> Save
             </button>
           ) : (
-            <button onClick={handleDeleteBooking} className="text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg flex items-center gap-2 transition">
+            <button onClick={handleDeleteBooking} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-4 py-2 rounded-lg flex items-center gap-2 transition">
               <Trash2 size={18} /> Delete
             </button>
           )}
@@ -307,7 +317,7 @@ export default function BookingDetails() {
               <h3 className="text-slate-500 font-medium flex items-center gap-2">
                 <Banknote size={18} /> Revenue & Client Payment
               </h3>
-              <span className="text-xs font-bold px-2 py-1 rounded bg-blue-50 text-blue-600">
+              <span className={`text-xs font-bold px-2 py-1 rounded ${clientProgress === 100 ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'}`}>
                 {Math.round(clientProgress)}% Received
               </span>
             </div>
@@ -315,7 +325,7 @@ export default function BookingDetails() {
             {/* PROGRESS BAR */}
             <div className="w-full h-3 bg-slate-100 dark:bg-slate-700 rounded-full mb-6 overflow-hidden">
               <div 
-                className="h-full bg-blue-500 rounded-full transition-all duration-500" 
+                className={`h-full rounded-full transition-all duration-700 ${clientProgress === 100 ? 'bg-green-500' : 'bg-blue-500'}`}
                 style={{ width: `${clientProgress}%` }}
               ></div>
             </div>
@@ -331,7 +341,7 @@ export default function BookingDetails() {
                  {isEditingBooking ? (
                    <input 
                      type="number"
-                     className="w-full mt-1 bg-white p-1 rounded border"
+                     className="w-full mt-1 bg-white dark:bg-slate-800 p-1 rounded border dark:border-slate-600 dark:text-white"
                      value={editBookingData.clientPaidAmount}
                      onChange={(e) => setEditBookingData({...editBookingData, clientPaidAmount: Number(e.target.value)})}
                    />
@@ -353,31 +363,33 @@ export default function BookingDetails() {
               <TrendingUp size={18} /> Profitability & Tax Breakdown
             </h3>
 
-            <div className="grid grid-cols-2 gap-6 items-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
               <div>
                 <p className="text-slate-400 text-sm">Net Profit (Gross)</p>
                 <p className={`text-4xl font-bold mt-2 ${netProfit >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                   {formatMoney(netProfit)}
                 </p>
-                <p className="text-xs text-slate-400 mt-1">Before 18% GST Deduction</p>
+                <p className="text-xs text-slate-400 mt-1">Inclusive of 18% GST</p>
               </div>
               
-              <div className="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl">
+              <div className="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
                  <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-700">
-                    <span className="text-sm text-slate-500">Profit After Tax</span>
+                    <span className="text-sm text-slate-500">Real Profit (Excl. Tax)</span>
                     <span className="font-bold text-indigo-600 dark:text-indigo-400 text-lg">{formatMoney(profitAfterTax)}</span>
                  </div>
-                 <div className="flex justify-between items-center text-xs text-slate-400">
-                    <span>CGST (9%)</span>
-                    <span>{formatMoney(cgst)}</span>
-                 </div>
-                 <div className="flex justify-between items-center text-xs text-slate-400">
-                    <span>SGST (9%)</span>
-                    <span>{formatMoney(sgst)}</span>
-                 </div>
-                 <div className="flex justify-between items-center text-xs font-medium text-slate-500 pt-1">
-                    <span>Total GST</span>
-                    <span>{formatMoney(totalTax)}</span>
+                 <div className="space-y-1 pt-1">
+                   <div className="flex justify-between items-center text-xs text-slate-400">
+                      <span>CGST (9%)</span>
+                      <span>{formatMoney(cgst)}</span>
+                   </div>
+                   <div className="flex justify-between items-center text-xs text-slate-400">
+                      <span>SGST (9%)</span>
+                      <span>{formatMoney(sgst)}</span>
+                   </div>
+                   <div className="flex justify-between items-center text-xs font-bold text-slate-500 pt-1 border-t border-slate-200 dark:border-slate-700 mt-1">
+                      <span>Total Tax Paid</span>
+                      <span>{formatMoney(totalTax)}</span>
+                   </div>
                  </div>
               </div>
             </div>
@@ -407,7 +419,7 @@ export default function BookingDetails() {
                {/* VENDOR PROGRESS BAR */}
                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-red-400 rounded-full" 
+                    className="h-full bg-orange-400 rounded-full" 
                     style={{ width: `${vendorProgress}%` }}
                   ></div>
                </div>
@@ -433,7 +445,7 @@ export default function BookingDetails() {
                       {editingExpenseId === expense._id ? (
                          <div className="space-y-2">
                             <input 
-                              className="w-full p-2 border rounded text-sm"
+                              className="w-full p-2 border rounded text-sm dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                               placeholder="Vendor Name"
                               value={editExpenseData.vendorName}
                               onChange={(e) => setEditExpenseData({...editExpenseData, vendorName: e.target.value})}
@@ -441,13 +453,13 @@ export default function BookingDetails() {
                             <div className="flex gap-2">
                               <input 
                                 type="number"
-                                className="w-1/2 p-2 border rounded text-sm"
+                                className="w-1/2 p-2 border rounded text-sm dark:bg-slate-800 dark:border-slate-600 dark:text-white"
                                 placeholder="Cost"
                                 value={editExpenseData.amount}
                                 onChange={(e) => setEditExpenseData({...editExpenseData, amount: Number(e.target.value)})}
                               />
-                              <button onClick={() => handleUpdateExpense(expense._id)} className="bg-green-100 text-green-700 p-2 rounded"><Save size={14}/></button>
-                              <button onClick={() => setEditingExpenseId(null)} className="bg-red-100 text-red-700 p-2 rounded"><X size={14}/></button>
+                              <button onClick={() => handleUpdateExpense(expense._id)} className="bg-green-100 text-green-700 p-2 rounded hover:bg-green-200"><Save size={14}/></button>
+                              <button onClick={() => setEditingExpenseId(null)} className="bg-red-100 text-red-700 p-2 rounded hover:bg-red-200"><X size={14}/></button>
                             </div>
                          </div>
                       ) : (
@@ -483,7 +495,7 @@ export default function BookingDetails() {
 
       {/* 3. ADD EXPENSE MODAL */}
       {showExpenseForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-xl relative animate-in fade-in zoom-in duration-200">
              <button onClick={() => setShowExpenseForm(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X /></button>
              
@@ -494,7 +506,7 @@ export default function BookingDetails() {
                  <label className="text-xs font-semibold text-slate-500 uppercase">Vendor / Type</label>
                  <input 
                    required
-                   className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-900 dark:text-white"
+                   className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                    placeholder="e.g. Indigo Flight, Taj Hotel, Visa Fee"
                    value={newExpenseData.vendorName}
                    onChange={(e) => setNewExpenseData({...newExpenseData, vendorName: e.target.value})}
@@ -508,7 +520,7 @@ export default function BookingDetails() {
                     <input 
                       required
                       type="number"
-                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-900 dark:text-white"
+                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                       placeholder="₹"
                       value={newExpenseData.amount}
                       onChange={(e) => setNewExpenseData({...newExpenseData, amount: e.target.value})}
@@ -518,7 +530,7 @@ export default function BookingDetails() {
                     <label className="text-xs font-semibold text-slate-500 uppercase">Paid So Far</label>
                     <input 
                       type="number"
-                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-900 dark:text-white"
+                      className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                       placeholder="₹"
                       value={newExpenseData.paidAmount}
                       onChange={(e) => setNewExpenseData({...newExpenseData, paidAmount: e.target.value})}
@@ -526,7 +538,7 @@ export default function BookingDetails() {
                  </div>
                </div>
 
-               <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl mt-2">
+               <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl mt-2 shadow-lg shadow-blue-600/20 transition">
                  Add Expense
                </button>
              </form>
