@@ -1,66 +1,63 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Calendar, X, Filter } from "lucide-react";
-import * as XLSX from "xlsx";
+import { Plus, Calendar, Filter, X } from "lucide-react";
 
-// SAME ORIGIN API
+// SAME-ORIGIN API (Vercel safe)
 const API_URL = "";
 
 export default function Bookings() {
   const navigate = useNavigate();
 
+  /* ================= STATE ================= */
   const [bookings, setBookings] = useState([]);
-  const [expenses, setExpenses] = useState([]);
   const [showForm, setShowForm] = useState(false);
 
-  // FILTER STATES
+  // Filters
   const [filterType, setFilterType] = useState("all");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedQuarter, setSelectedQuarter] = useState("Q1");
 
-  // FORM STATE
+  // New booking form
   const [formData, setFormData] = useState({
     name: "",
     clientName: "",
     totalClientPayment: "",
-    date: new Date().toISOString().split("T")[0]
+    date: new Date().toISOString().split("T")[0],
   });
 
-  // YEAR OPTIONS
+  /* ================= YEAR OPTIONS ================= */
   const yearOptions = [];
   const currentYear = new Date().getFullYear();
-  for (let i = currentYear - 2; i <= 2050; i++) {
+  for (let i = currentYear - 2; i <= currentYear + 5; i++) {
     yearOptions.push(i);
   }
 
-  // =========================
-  // FETCH DATA
-  // =========================
+  /* ================= FETCH BOOKINGS ================= */
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchBookings = async () => {
       const token = localStorage.getItem("token");
       if (!token) return;
 
-      const headers = { Authorization: `Bearer ${token}` };
+      const res = await fetch("/api/bookings", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      const [resBookings, resExpenses] = await Promise.all([
-        fetch("/api/bookings", { headers }),
-        fetch("/api/expenses", { headers })
-      ]);
-
-      if (resBookings.ok && resExpenses.ok) {
-        setBookings(await resBookings.json());
-        setExpenses(await resExpenses.json());
+      if (!res.ok) {
+        console.error("Failed to fetch bookings");
+        return;
       }
+
+      const data = await res.json();
+      setBookings(Array.isArray(data) ? data : []);
     };
 
-    fetchData();
+    fetchBookings();
   }, []);
 
-  // =========================
-  // CREATE BOOKING
-  // =========================
+  /* ================= CREATE BOOKING ================= */
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
@@ -69,84 +66,66 @@ export default function Bookings() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         ...formData,
         totalClientPayment: Number(formData.totalClientPayment),
-        clientPaidAmount: 0
-      })
+        clientPaidAmount: 0,
+      }),
     });
 
-    const data = await res.json();
-    if (res.ok) {
-      setBookings([data, ...bookings]);
-      setShowForm(false);
-      setFormData({
-        name: "",
-        clientName: "",
-        totalClientPayment: "",
-        date: new Date().toISOString().split("T")[0]
-      });
+    if (!res.ok) return;
+
+    const newBooking = await res.json();
+    setBookings([newBooking, ...bookings]);
+    setShowForm(false);
+    setFormData({
+      name: "",
+      clientName: "",
+      totalClientPayment: "",
+      date: new Date().toISOString().split("T")[0],
+    });
+  };
+
+  /* ================= FILTER LOGIC (FIXED) ================= */
+  const filteredBookings = bookings.filter((b) => {
+    if (filterType === "all") return true;
+
+    const d = new Date(b.date);
+    const m = d.getMonth();
+    const y = d.getFullYear();
+
+    if (filterType === "monthly") {
+      return m === selectedMonth && y === selectedYear;
     }
-  };
 
-  // =========================
-  // FILTER LOGIC (UNCHANGED)
-  // =========================
-  const getFilteredBookings = () => {
-    if (filterType === "all") return bookings;
+    if (filterType === "yearly") {
+      const fyStart = new Date(selectedYear, 3, 1);
+      const fyEnd = new Date(selectedYear + 1, 2, 31);
+      return d >= fyStart && d <= fyEnd;
+    }
 
-    return bookings.filter((b) => {
-      const date = new Date(b.date);
-      const month = date.getMonth();
-      const year = date.getFullYear();
+    if (filterType === "quarterly") {
+      const ranges = {
+        Q1: [3, 5],
+        Q2: [6, 8],
+        Q3: [9, 11],
+        Q4: [0, 2],
+      };
+      const [start, end] = ranges[selectedQuarter];
+      const fy = selectedQuarter === "Q4" ? selectedYear + 1 : selectedYear;
+      return m >= start && m <= end && y === fy;
+    }
 
-      if (filterType === "monthly") {
-        return (
-          month === Number(selectedMonth) &&
-          year === Number(selectedYear)
-        );
-      }
+    return true;
+  });
 
-      if (filterType === "yearly") {
-        const fyStart = new Date(Number(selectedYear), 3, 1);
-        const fyEnd = new Date(Number(selectedYear) + 1, 2, 31);
-        return date >= fyStart && date <= fyEnd;
-      }
-
-      if (filterType === "quarterly") {
-        let qStart, qEnd;
-        if (selectedQuarter === "Q1") {
-          qStart = new Date(Number(selectedYear), 3, 1);
-          qEnd = new Date(Number(selectedYear), 5, 30);
-        } else if (selectedQuarter === "Q2") {
-          qStart = new Date(Number(selectedYear), 6, 1);
-          qEnd = new Date(Number(selectedYear), 8, 30);
-        } else if (selectedQuarter === "Q3") {
-          qStart = new Date(Number(selectedYear), 9, 1);
-          qEnd = new Date(Number(selectedYear), 11, 31);
-        } else {
-          qStart = new Date(Number(selectedYear) + 1, 0, 1);
-          qEnd = new Date(Number(selectedYear) + 1, 2, 31);
-        }
-        return date >= qStart && date <= qEnd;
-      }
-
-      return true;
-    });
-  };
-
-  const filteredList = getFilteredBookings();
-
-  // =========================
-  // RENDER
-  // =========================
+  /* ================= RENDER ================= */
   return (
-    <div className="p-4 md:p-8 animate-in fade-in duration-300">
-      
-      {/* HEADER (DASHBOARD STYLE) */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+    <div className="p-6 md:p-8 space-y-6">
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-slate-800 dark:text-white">
             Bookings
@@ -158,25 +137,22 @@ export default function Bookings() {
 
         <button
           onClick={() => setShowForm(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 shadow-sm"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 font-semibold"
         >
-          <Plus size={20} /> New
+          <Plus size={18} /> New
         </button>
       </div>
 
-      {/* FILTER BAR (DARK MODE FIXED) */}
-      <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl mb-6 flex flex-wrap gap-4 items-center border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-semibold">
+      {/* FILTER BAR */}
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-wrap gap-4 items-center shadow-sm">
+        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-medium">
           <Filter size={18} /> Filters
         </div>
 
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="p-2 rounded-lg border border-slate-300 dark:border-slate-600
-                     bg-white dark:bg-slate-900
-                     text-slate-800 dark:text-white
-                     text-sm focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-2 rounded-lg border bg-white dark:bg-slate-900 dark:text-white"
         >
           <option value="all">All Time</option>
           <option value="monthly">Monthly</option>
@@ -189,24 +165,36 @@ export default function Bookings() {
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="p-2 rounded-lg border border-slate-300 dark:border-slate-600
-                         bg-white dark:bg-slate-900
-                         text-slate-800 dark:text-white text-sm"
+              className="px-3 py-2 rounded-lg border bg-white dark:bg-slate-900 dark:text-white"
             >
-              {yearOptions.map((yr) => (
-                <option key={yr} value={yr}>
-                  {filterType === "monthly" ? yr : `FY ${yr}-${yr + 1}`}
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {filterType === "monthly" ? y : `FY ${y}-${y + 1}`}
                 </option>
               ))}
             </select>
+
+            {filterType === "monthly" && (
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="px-3 py-2 rounded-lg border bg-white dark:bg-slate-900 dark:text-white"
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i} value={i}>
+                    {new Date(0, i).toLocaleString("default", {
+                      month: "long",
+                    })}
+                  </option>
+                ))}
+              </select>
+            )}
 
             {filterType === "quarterly" && (
               <select
                 value={selectedQuarter}
                 onChange={(e) => setSelectedQuarter(e.target.value)}
-                className="p-2 rounded-lg border border-slate-300 dark:border-slate-600
-                           bg-white dark:bg-slate-900
-                           text-slate-800 dark:text-white text-sm"
+                className="px-3 py-2 rounded-lg border bg-white dark:bg-slate-900 dark:text-white"
               >
                 <option value="Q1">Q1 (Apr–Jun)</option>
                 <option value="Q2">Q2 (Jul–Sep)</option>
@@ -214,82 +202,64 @@ export default function Bookings() {
                 <option value="Q4">Q4 (Jan–Mar)</option>
               </select>
             )}
-
-            {filterType === "monthly" && (
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                className="p-2 rounded-lg border border-slate-300 dark:border-slate-600
-                           bg-white dark:bg-slate-900
-                           text-slate-800 dark:text-white text-sm"
-              >
-                {Array.from({ length: 12 }, (_, i) => (
-                  <option key={i} value={i}>
-                    {new Date(0, i).toLocaleString("default", {
-                      month: "long"
-                    })}
-                  </option>
-                ))}
-              </select>
-            )}
           </>
         )}
       </div>
 
       {/* BOOKINGS LIST */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
-        {filteredList.length === 0 ? (
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+        {filteredBookings.length === 0 ? (
           <div className="p-10 text-center text-slate-400">
             No bookings found
           </div>
         ) : (
-          filteredList.map((booking) => (
+          filteredBookings.map((b) => (
             <div
-              key={booking._id}
-              onClick={() => navigate(`/bookings/${booking._id}`)}
-              className="flex justify-between items-center p-5 border-b border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors group"
+              key={b._id}
+              onClick={() => navigate(`/bookings/${b._id}`)}
+              className="flex justify-between items-center p-5 border-b last:border-b-0 hover:bg-blue-50 dark:hover:bg-slate-700/50 cursor-pointer transition"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400">
+                <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
                   <Calendar size={20} />
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-800 dark:text-white">
-                    {booking.name}
+                    {b.name}
                   </h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {booking.clientName}
+                  <p className="text-sm text-slate-500">
+                    {b.clientName}
                   </p>
                 </div>
               </div>
 
               <div className="font-bold text-slate-800 dark:text-white">
-                ₹{booking.totalClientPayment.toLocaleString("en-IN")}
+                ₹{b.totalClientPayment.toLocaleString("en-IN")}
               </div>
             </div>
           ))
         )}
       </div>
 
-      {/* MODAL */}
+      {/* NEW BOOKING MODAL */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl w-full max-w-md relative shadow-2xl">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl w-full max-w-md relative">
             <button
               onClick={() => setShowForm(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-800 dark:hover:text-white"
+              className="absolute top-4 right-4 text-slate-400"
             >
               <X />
             </button>
 
-            <h2 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">
+            <h2 className="text-2xl font-bold mb-6 dark:text-white">
               New Trip
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <input
+                className="w-full p-3 border rounded dark:bg-slate-900 dark:text-white"
                 placeholder="Trip Name"
-                className="w-full p-3 border rounded-lg dark:bg-slate-900 dark:text-white"
                 value={formData.name}
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
@@ -298,8 +268,8 @@ export default function Bookings() {
               />
 
               <input
+                className="w-full p-3 border rounded dark:bg-slate-900 dark:text-white"
                 placeholder="Client Name"
-                className="w-full p-3 border rounded-lg dark:bg-slate-900 dark:text-white"
                 value={formData.clientName}
                 onChange={(e) =>
                   setFormData({ ...formData, clientName: e.target.value })
@@ -309,13 +279,13 @@ export default function Bookings() {
 
               <input
                 type="number"
+                className="w-full p-3 border rounded dark:bg-slate-900 dark:text-white"
                 placeholder="Amount"
-                className="w-full p-3 border rounded-lg dark:bg-slate-900 dark:text-white"
                 value={formData.totalClientPayment}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    totalClientPayment: e.target.value
+                    totalClientPayment: e.target.value,
                   })
                 }
                 required
@@ -323,7 +293,7 @@ export default function Bookings() {
 
               <input
                 type="date"
-                className="w-full p-3 border rounded-lg dark:bg-slate-900 dark:text-white"
+                className="w-full p-3 border rounded dark:bg-slate-900 dark:text-white"
                 value={formData.date}
                 onChange={(e) =>
                   setFormData({ ...formData, date: e.target.value })
