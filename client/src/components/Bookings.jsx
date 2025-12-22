@@ -210,101 +210,138 @@ export default function Bookings() {
   // RENDER
   // =========================
   return (
-    <div className="p-4 md:p-8" onClick={() => setShowExportMenu(false)}>
-      {/* HEADER */}
-      <div className="flex justify-between mb-6">
-        <h1 className="text-3xl font-bold dark:text-white">Bookings</h1>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-xl flex gap-2"
-        >
-          <Plus /> New
-        </button>
+  <div
+    className="p-4 md:p-8 animate-in fade-in duration-300"
+    onClick={() => setShowExportMenu(false)}
+  >
+    {/* HEADER */}
+    <div className="flex justify-between items-center mb-6">
+      <div>
+        <h1 className="text-3xl font-bold text-slate-800 dark:text-white">
+          Bookings
+        </h1>
+        <p className="text-slate-500 dark:text-slate-400">
+          Manage client trips & payments
+        </p>
       </div>
 
-      {/* LIST */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
-        {filteredList.map((booking) => (
+      <button
+        onClick={() => setShowForm(true)}
+        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl flex gap-2 items-center"
+      >
+        <Plus size={18} /> New
+      </button>
+    </div>
+
+    {/* BOOKINGS LIST */}
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+      {filteredList.length === 0 ? (
+        <div className="p-10 text-center text-slate-400">
+          No bookings found.
+        </div>
+      ) : (
+        filteredList.map((booking) => (
           <div
             key={booking._id}
             onClick={() => navigate(`/bookings/${booking._id}`)}
-            className="flex justify-between items-center p-5 border-b dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700 cursor-pointer"
+            className="flex justify-between items-center p-5 border-b border-slate-50 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors"
           >
             <div className="flex gap-4 items-center">
-              <Calendar />
+              <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400">
+                <Calendar size={20} />
+              </div>
+
               <div>
-                <h3 className="font-bold dark:text-white">
+                <h3 className="font-bold text-slate-800 dark:text-white">
                   {booking.name}
                 </h3>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   {booking.clientName}
                 </p>
               </div>
             </div>
-            <div className="font-bold dark:text-white">
-              ₹{booking.totalClientPayment.toLocaleString("en-IN")}
+
+            <div className="text-right">
+              <div className="font-bold text-slate-800 dark:text-white">
+                ₹{booking.totalClientPayment.toLocaleString("en-IN")}
+              </div>
+              <span className="text-xs text-slate-400">
+                Click to view details
+              </span>
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* NEW BOOKING MODAL (UNCHANGED UI) */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl w-full max-w-md">
-            <button
-              onClick={() => setShowForm(false)}
-              className="absolute top-4 right-4"
-            >
-              <X />
-            </button>
-            <h2 className="text-2xl font-bold mb-6 dark:text-white">
-              New Trip
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <input
-                placeholder="Trip Name"
-                className="w-full p-3 rounded-lg"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-              />
-              <input
-                placeholder="Client Name"
-                className="w-full p-3 rounded-lg"
-                value={formData.clientName}
-                onChange={(e) =>
-                  setFormData({ ...formData, clientName: e.target.value })
-                }
-              />
-              <input
-                type="number"
-                placeholder="Amount"
-                className="w-full p-3 rounded-lg"
-                value={formData.totalClientPayment}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    totalClientPayment: e.target.value
-                  })
-                }
-              />
-              <input
-                type="date"
-                className="w-full p-3 rounded-lg"
-                value={formData.date}
-                onChange={(e) =>
-                  setFormData({ ...formData, date: e.target.value })
-                }
-              />
-              <button className="w-full bg-blue-600 text-white py-3 rounded-xl">
-                Save
-              </button>
-            </form>
-          </div>
-        </div>
+        ))
       )}
     </div>
-  );
+
+    {/* NEW BOOKING MODAL */}
+    {showForm && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
+        <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl w-full max-w-md relative shadow-2xl">
+          <button
+            onClick={() => setShowForm(false)}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-800 dark:hover:text-white"
+          >
+            <X size={20} />
+          </button>
+
+          <h2 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">
+            New Trip
+          </h2>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <input
+              placeholder="Trip Name"
+              className="w-full p-3 rounded-lg border dark:bg-slate-900 dark:text-white"
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              required
+            />
+
+            <input
+              placeholder="Client Name"
+              className="w-full p-3 rounded-lg border dark:bg-slate-900 dark:text-white"
+              value={formData.clientName}
+              onChange={(e) =>
+                setFormData({ ...formData, clientName: e.target.value })
+              }
+              required
+            />
+
+            <input
+              type="number"
+              placeholder="Amount"
+              className="w-full p-3 rounded-lg border dark:bg-slate-900 dark:text-white"
+              value={formData.totalClientPayment}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  totalClientPayment: e.target.value
+                })
+              }
+              required
+            />
+
+            <input
+              type="date"
+              className="w-full p-3 rounded-lg border dark:bg-slate-900 dark:text-white"
+              value={formData.date}
+              onChange={(e) =>
+                setFormData({ ...formData, date: e.target.value })
+              }
+              required
+            />
+
+            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold">
+              Save
+            </button>
+          </form>
+        </div>
+      </div>
+    )}
+  </div>
+);
+
 }
