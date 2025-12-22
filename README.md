@@ -9,20 +9,20 @@ https://velocity-tours-fsjn-lt53rdlm3-bhavay-vasudevs-projects.vercel.app/
 
 Features:
 
-🔐 **Role-Based Access Control**
-   - Admin and Staff roles with restricted permissions
-📋 **Booking Management**
-   - Add, view, update, and manage tour bookings
-💸 **Expense Tracking**
-   - Track operational expenses linked to tours
- 📊 **Profit Calculation**
-   - Accurate profit calculation based on bookings and expenses
- 📤 **Excel Export**
-   - Export bookings and financial data to Excel for reporting
- 📱 **Responsive Dashboard**
-   - Works smoothly across devices
- ☁️ **Live Deployment**
-   - Production-ready and deployed
+ 🔐 - **Role-Based Access Control**
+    Admin and Staff roles with restricted permissions
+ 📋 - **Booking Management**
+    Add, view, update, and manage tour bookings
+💸 - **Expense Tracking**
+    Track operational expenses linked to tours
+ 📊 - **Profit Calculation**
+    Accurate profit calculation based on bookings and expenses
+ 📤 - **Excel Export**
+    Export bookings and financial data to Excel for reporting
+ 📱 - **Responsive Dashboard**
+    Works smoothly across devices
+ ☁️ - **Live Deployment**
+    Production-ready and deployed
 
 
 🛠 Tech Stack
