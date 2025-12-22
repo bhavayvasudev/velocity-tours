@@ -1,11 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Plus,
-  Calendar,
-  X,
-  Filter
-} from "lucide-react";
+import { Plus, Calendar, X, Filter } from "lucide-react";
 import * as XLSX from "xlsx";
 
 // SAME ORIGIN API
@@ -18,8 +13,8 @@ export default function Bookings() {
   const [expenses, setExpenses] = useState([]);
   const [showForm, setShowForm] = useState(false);
 
-  // FILTER STATES
-  const [filterType, setFilterType] = useState("monthly");
+  // ✅ FIX 1: default = all
+  const [filterType, setFilterType] = useState("all");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedQuarter, setSelectedQuarter] = useState("Q1");
@@ -32,7 +27,7 @@ export default function Bookings() {
     date: new Date().toISOString().split("T")[0]
   });
 
-  // YEAR OPTIONS (REQUIRED)
+  // YEAR OPTIONS
   const yearOptions = [];
   const currentYear = new Date().getFullYear();
   for (let i = currentYear - 2; i <= 2050; i++) {
@@ -97,7 +92,7 @@ export default function Bookings() {
   };
 
   // =========================
-  // FILTER LOGIC
+  // FILTER LOGIC (FIXED)
   // =========================
   const getFilteredBookings = () => {
     if (filterType === "all") return bookings;
@@ -108,11 +103,14 @@ export default function Bookings() {
       const year = date.getFullYear();
 
       if (filterType === "monthly") {
-        return month === selectedMonth && year === Number(selectedYear);
+        return (
+          month === Number(selectedMonth) &&
+          year === Number(selectedYear)
+        );
       }
 
       if (filterType === "yearly") {
-        const fyStart = new Date(selectedYear, 3, 1);
+        const fyStart = new Date(Number(selectedYear), 3, 1);
         const fyEnd = new Date(Number(selectedYear) + 1, 2, 31);
         return date >= fyStart && date <= fyEnd;
       }
@@ -120,14 +118,14 @@ export default function Bookings() {
       if (filterType === "quarterly") {
         let qStart, qEnd;
         if (selectedQuarter === "Q1") {
-          qStart = new Date(selectedYear, 3, 1);
-          qEnd = new Date(selectedYear, 5, 30);
+          qStart = new Date(Number(selectedYear), 3, 1);
+          qEnd = new Date(Number(selectedYear), 5, 30);
         } else if (selectedQuarter === "Q2") {
-          qStart = new Date(selectedYear, 6, 1);
-          qEnd = new Date(selectedYear, 8, 30);
+          qStart = new Date(Number(selectedYear), 6, 1);
+          qEnd = new Date(Number(selectedYear), 8, 30);
         } else if (selectedQuarter === "Q3") {
-          qStart = new Date(selectedYear, 9, 1);
-          qEnd = new Date(selectedYear, 11, 31);
+          qStart = new Date(Number(selectedYear), 9, 1);
+          qEnd = new Date(Number(selectedYear), 11, 31);
         } else {
           qStart = new Date(Number(selectedYear) + 1, 0, 1);
           qEnd = new Date(Number(selectedYear) + 1, 2, 31);
@@ -182,7 +180,7 @@ export default function Bookings() {
           <>
             <select
               value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
               className="p-2 rounded-lg border dark:bg-slate-800"
             >
               {yearOptions.map((yr) => (
@@ -208,7 +206,7 @@ export default function Bookings() {
             {filterType === "monthly" && (
               <select
                 value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
                 className="p-2 rounded-lg border dark:bg-slate-800"
               >
                 {Array.from({ length: 12 }, (_, i) => (
