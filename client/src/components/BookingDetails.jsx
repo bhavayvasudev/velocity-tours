@@ -17,7 +17,7 @@ import {
   CreditCard
 } from "lucide-react";
 
-// ✅ LIVE BACKEND URL
+// ✅ LIVE BACKEND URL (KEPT EXACTLY AS PROVIDED)
 const API_URL = "https://velocity-tours.vercel.app";
 
 export default function BookingDetails() {
@@ -49,6 +49,7 @@ export default function BookingDetails() {
     }).format(amount);
   };
 
+  // 🎨 SMART ICONS HELPER
   const getCategoryIcon = (name) => {
     const lower = name.toLowerCase();
     if (lower.includes("air") || lower.includes("flight") || lower.includes("ticket") || lower.includes("indigo") || lower.includes("vistara")) {
@@ -79,7 +80,7 @@ export default function BookingDetails() {
     };
   };
 
-  /* ================= FETCH DATA ================= */
+  /* ================= FETCH DATA (KEPT EXACTLY AS PROVIDED) ================= */
   const fetchData = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -92,11 +93,16 @@ export default function BookingDetails() {
         fetch(`${API_URL}/api/expenses/booking/${bookingId}`, { headers })
       ]);
 
-      if (!resBooking.ok || !resExpenses.ok) return;
+      if (!resBooking.ok || !resExpenses.ok) {
+        console.error("Failed to fetch booking data");
+        return;
+      }
 
       const bookingData = await resBooking.json();
       setBooking(bookingData);
       setExpenses(await resExpenses.json());
+      
+      // Prep edit form
       setEditBookingData(bookingData);
     } catch (err) {
       console.error(err);
@@ -107,7 +113,7 @@ export default function BookingDetails() {
     fetchData();
   }, [bookingId]);
 
-  /* ================= HANDLERS ================= */
+  /* ================= HANDLERS (KEPT EXACTLY AS PROVIDED) ================= */
   const handleUpdateBooking = async () => {
     await fetch(`${API_URL}/api/bookings/${bookingId}`, {
       method: "PUT",
@@ -164,7 +170,7 @@ export default function BookingDetails() {
     navigate("/bookings");
   };
 
-  /* ================= CALCULATIONS ================= */
+  /* ================= CALCULATIONS (UI TWEAKED) ================= */
   if (!booking) return <div className="p-10 text-center text-slate-500">Loading...</div>;
 
   // 1. Client Stats
@@ -183,16 +189,14 @@ export default function BookingDetails() {
 
   // 3. Profit & Tax (18% GST Logic)
   const netProfit = booking.totalClientPayment - totalVendorCost;
-  const profitAfterTax = Math.round(netProfit / 1.18); // Exclude 18% Tax
-  
-  // New Breakdown Logic
+  const profitAfterTax = Math.round(netProfit / 1.18); 
   const totalTax = netProfit - profitAfterTax;
   const cgst = totalTax / 2; // 9%
   const sgst = totalTax / 2; // 9%
 
   /* ================= RENDER ================= */
   return (
-    <div className="p-6 md:p-10 pb-32 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
+    <div className="p-6 md:p-10 pb-32 max-w-7xl mx-auto space-y-6">
       
       {/* 1. HEADER */}
       <div className="flex justify-between items-center">
@@ -255,7 +259,7 @@ export default function BookingDetails() {
               </span>
             </div>
 
-            {/* PROGRESS BAR */}
+            {/* 🟢 PROGRESS BAR */}
             <div className="w-full h-3 bg-slate-100 dark:bg-slate-700 rounded-full mb-6 overflow-hidden">
               <div 
                 className={`h-full rounded-full transition-all duration-700 ${clientProgress === 100 ? 'bg-green-500' : 'bg-blue-500'}`}
@@ -349,7 +353,7 @@ export default function BookingDetails() {
                  </button>
                </div>
                
-               {/* VENDOR PROGRESS BAR */}
+               {/* 🟠 VENDOR PROGRESS BAR */}
                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-orange-400 rounded-full" 
@@ -369,7 +373,7 @@ export default function BookingDetails() {
                 expenses.map((expense) => (
                   <div key={expense._id} className="group relative flex items-center gap-4 p-3 rounded-xl border border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
                     
-                    {/* ICON BOX */}
+                    {/* 🎨 SMART ICON */}
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${getCategoryColor(expense.vendorName)}`}>
                       {getCategoryIcon(expense.vendorName)}
                     </div>
@@ -391,8 +395,8 @@ export default function BookingDetails() {
                                 value={editExpenseData.amount}
                                 onChange={(e) => setEditExpenseData({...editExpenseData, amount: Number(e.target.value)})}
                               />
-                              <button onClick={() => handleUpdateExpense(expense._id)} className="bg-green-100 text-green-700 p-2 rounded"><Save size={14}/></button>
-                              <button onClick={() => setEditingExpenseId(null)} className="bg-red-100 text-red-700 p-2 rounded"><X size={14}/></button>
+                              <button onClick={() => handleUpdateExpense(expense._id)} className="bg-green-100 text-green-700 p-2 rounded hover:bg-green-200"><Save size={14}/></button>
+                              <button onClick={() => setEditingExpenseId(null)} className="bg-red-100 text-red-700 p-2 rounded hover:bg-red-200"><X size={14}/></button>
                             </div>
                          </div>
                       ) : (
