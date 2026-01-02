@@ -4,9 +4,6 @@ This project was specifically built for Velocity Tours & Travel Pvt. Ltd. to sup
 
 This project focuses on solving real-world business workflows, not just CRUD operations.
 
-Currently deployed at:
-https://velocity-tours-fsjn-lt53rdlm3-bhavay-vasudevs-projects.vercel.app/
-
 Features:
 
  - 🔐 **Role-Based Access Control**
