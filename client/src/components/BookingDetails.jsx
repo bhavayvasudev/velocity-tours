@@ -17,6 +17,9 @@ import {
   CreditCard
 } from "lucide-react";
 
+// Import the animated loader
+import BookingsLoader from './BookingsLoader';
+
 // ✅ LIVE BACKEND URL
 const API_URL = "https://velocity-tours.vercel.app";
 
@@ -166,7 +169,8 @@ export default function BookingDetails() {
   };
 
   /* ================= CALCULATIONS ================= */
-  if (!booking) return <div className="p-10 text-center text-slate-500">Loading...</div>;
+  // REPLACED PLAIN TEXT WITH ANIMATED LOADER
+  if (!booking) return <BookingsLoader />;
 
   // 1. Client Stats
   const clientPending = booking.totalClientPayment - booking.clientPaidAmount;
