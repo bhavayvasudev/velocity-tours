@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-// ✅ CHANGED: Switched to 'Banknote' to prevent crashes if IndianRupee is missing
 import { TrendingUp, TrendingDown, Users, Banknote, Calendar, Wallet, Filter } from "lucide-react";
+// ✅ Import the reusable loader
+import BookingsLoader from "./BookingsLoader";
 
-// 👇 ✅ FIXED: BACK TO THE PRODUCTION URL
 const API_URL = "https://velocity-tours.vercel.app/api";
 
-// 1. StatCard Component
+// ... (Keep StatCard component as is) ...
 const StatCard = ({ title, value, subtext, icon: Icon, color }) => (
   <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all">
     <div className="flex justify-between items-start mb-4">
@@ -20,17 +20,18 @@ const StatCard = ({ title, value, subtext, icon: Icon, color }) => (
 );
 
 export default function DashboardHome() {
-  // --- RAW DATA STATE ---
   const [allBookings, setAllBookings] = useState([]);
   const [allExpenses, setAllExpenses] = useState([]);
+  
+  // ✅ Loading State
+  const [isLoading, setIsLoading] = useState(true);
 
-  // --- FILTER STATE ---
+  // Filters
   const [filterType, setFilterType] = useState("monthly"); 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedQuarter, setSelectedQuarter] = useState("Q1");
 
-  // --- CALCULATED STATS STATE ---
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalExpenses: 0,
@@ -40,15 +41,16 @@ export default function DashboardHome() {
     recentActivity: []
   });
 
-  // 1. Fetch All Data on Mount
+  // 1. Fetch All Data
   useEffect(() => {
     const loadData = async () => {
+      // ✅ Start loading
+      setIsLoading(true); 
       const token = localStorage.getItem("token");
       if (!token) return;
 
       try {
         const headers = { "Authorization": `Bearer ${token}` };
-
         const [bookingsRes, expensesRes] = await Promise.all([
           fetch(`${API_URL}/bookings`, { headers }),
           fetch(`${API_URL}/expenses`, { headers })
@@ -57,20 +59,20 @@ export default function DashboardHome() {
         if (bookingsRes.ok && expensesRes.ok) {
             setAllBookings(await bookingsRes.json());
             setAllExpenses(await expensesRes.json());
-        } else {
-            console.error("Server Error:", bookingsRes.status, expensesRes.status);
         }
       } catch (err) {
         console.error("Error loading dashboard data:", err);
       }
+      // Note: We don't set isLoading(false) here because the 
+      // Filter Engine effect below will run immediately after state updates
+      // and handle the "finish loading" logic.
     };
     loadData();
   }, []);
 
-  // 2. Filter Engine (Runs whenever filters or data change)
+  // 2. Filter Engine
   useEffect(() => {
-    
-    // Step A: Filter Bookings based on Date
+    // Logic to calculate stats...
     const getFilteredBookings = () => {
       if (filterType === "all") return allBookings;
 
@@ -83,28 +85,23 @@ export default function DashboardHome() {
           return month === parseInt(selectedMonth) && year === parseInt(selectedYear);
         }
         if (filterType === "yearly") {
-          // Financial Year: April 1st to March 31st (Next Year)
           const fyStart = new Date(selectedYear, 3, 1); 
           const fyEnd = new Date(parseInt(selectedYear) + 1, 2, 31); 
           return date >= fyStart && date <= fyEnd;
         }
         if (filterType === "quarterly") {
           let qStart, qEnd;
-          if (selectedQuarter === "Q1") { // Apr - Jun
-            qStart = new Date(selectedYear, 3, 1); 
-            qEnd = new Date(selectedYear, 5, 30); 
+          if (selectedQuarter === "Q1") { 
+            qStart = new Date(selectedYear, 3, 1); qEnd = new Date(selectedYear, 5, 30); 
           } 
-          else if (selectedQuarter === "Q2") { // Jul - Sep
-            qStart = new Date(selectedYear, 6, 1); 
-            qEnd = new Date(selectedYear, 8, 30); 
+          else if (selectedQuarter === "Q2") { 
+            qStart = new Date(selectedYear, 6, 1); qEnd = new Date(selectedYear, 8, 30); 
           } 
-          else if (selectedQuarter === "Q3") { // Oct - Dec
-            qStart = new Date(selectedYear, 9, 1); 
-            qEnd = new Date(selectedYear, 11, 31); 
+          else if (selectedQuarter === "Q3") { 
+            qStart = new Date(selectedYear, 9, 1); qEnd = new Date(selectedYear, 11, 31); 
           } 
-          else if (selectedQuarter === "Q4") { // Jan - Mar (Next Year)
-            qStart = new Date(parseInt(selectedYear) + 1, 0, 1); 
-            qEnd = new Date(parseInt(selectedYear) + 1, 2, 31); 
+          else if (selectedQuarter === "Q4") { 
+            qStart = new Date(parseInt(selectedYear) + 1, 0, 1); qEnd = new Date(parseInt(selectedYear) + 1, 2, 31); 
           }
           return date >= qStart && date <= qEnd;
         }
@@ -113,17 +110,13 @@ export default function DashboardHome() {
     };
 
     const filteredBookings = getFilteredBookings();
-
-    // Step B: Filter Expenses based on the FILTERED Bookings
-    // ✅ STRICT MODE: Only show expenses for trips that are visible
     const validBookingIds = new Set(filteredBookings.map(b => b._id));
     const filteredExpenses = allExpenses.filter(e => validBookingIds.has(e.bookingId));
 
-    // 3. Calculate Math
     const totalRevenue = filteredBookings.reduce((sum, b) => sum + (b.totalClientPayment || 0), 0);
     const totalExpenses = filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
     const netProfit = totalRevenue - totalExpenses;
-    const profitAfterTax = netProfit / 1.18; // Logic: Remove 18% GST
+    const profitAfterTax = netProfit / 1.18;
 
     setStats({
       totalRevenue,
@@ -134,22 +127,40 @@ export default function DashboardHome() {
       recentActivity: filteredBookings.sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 5) 
     });
 
+    // ✅ ARTIFICIAL DELAY FOR UX
+    // This ensures the loader is visible for at least 600ms, making the transition feel "calculated"
+    const timer = setTimeout(() => {
+        setIsLoading(false);
+    }, 600);
+
+    return () => clearTimeout(timer);
+
   }, [allBookings, allExpenses, filterType, selectedYear, selectedMonth, selectedQuarter]);
 
+  // ✅ HELPER: Update Filter AND Trigger Loading
+  const handleFilterChange = (setter, value) => {
+    setIsLoading(true);
+    setter(value);
+  };
 
   const formatMoney = (amount) => {
     return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
+      style: 'currency', currency: 'INR', maximumFractionDigits: 0
     }).format(amount);
   };
 
-  // Helper for Year Dropdown
   const yearOptions = [];
   const currentYear = new Date().getFullYear();
   for (let i = currentYear - 2; i <= 2050; i++) yearOptions.push(i);
 
+  // --- RENDER ---
+  
+  // 1. If Loading, show the Animation
+  if (isLoading) {
+    return <BookingsLoader message="Fetching details..." />;
+  }
+
+  // 2. Otherwise show Dashboard
   return (
     <div className="p-6 md:p-10 space-y-6 pb-24 md:pb-10 animate-in fade-in duration-500">
       
@@ -166,10 +177,11 @@ export default function DashboardHome() {
                 <Filter size={16} /> <span className="text-sm">Filter:</span>
             </div>
             
+            {/* ✅ Update onChange to use handleFilterChange */}
             <select 
                 className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500" 
                 value={filterType} 
-                onChange={(e) => setFilterType(e.target.value)}
+                onChange={(e) => handleFilterChange(setFilterType, e.target.value)}
             >
                 <option value="all">Lifetime</option>
                 <option value="monthly">Monthly</option>
@@ -182,7 +194,7 @@ export default function DashboardHome() {
                 <select 
                     className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500" 
                     value={selectedYear} 
-                    onChange={(e) => setSelectedYear(e.target.value)}
+                    onChange={(e) => handleFilterChange(setSelectedYear, e.target.value)}
                 >
                     {yearOptions.map(yr => ( 
                         <option key={yr} value={yr}>
@@ -195,7 +207,7 @@ export default function DashboardHome() {
                     <select 
                         className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500" 
                         value={selectedQuarter} 
-                        onChange={(e) => setSelectedQuarter(e.target.value)}
+                        onChange={(e) => handleFilterChange(setSelectedQuarter, e.target.value)}
                     >
                         <option value="Q1">Q1 (Apr-Jun)</option>
                         <option value="Q2">Q2 (Jul-Sep)</option>
@@ -208,7 +220,7 @@ export default function DashboardHome() {
                     <select 
                         className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500" 
                         value={selectedMonth} 
-                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        onChange={(e) => handleFilterChange(setSelectedMonth, e.target.value)}
                     >
                         {Array.from({ length: 12 }, (_, i) => ( 
                             <option key={i} value={i}>
@@ -224,7 +236,8 @@ export default function DashboardHome() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-        <StatCard 
+         {/* ... (Rest of your JSX remains exactly the same) ... */}
+         <StatCard 
           title="Total Revenue" 
           value={formatMoney(stats.totalRevenue)} 
           subtext="Total Deal Value"
@@ -264,7 +277,7 @@ export default function DashboardHome() {
           color="bg-violet-500" 
         />
       </div>
-
+      
       {/* Recent Activity Section */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6">
         <div className="flex justify-between items-center mb-4">

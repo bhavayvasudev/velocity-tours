@@ -14,7 +14,7 @@ import {
   Loader2,
   Plane,      
   Building2,  
-  Globe      
+  Globe       
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import BookingsLoader from "./BookingsLoader"; // ✅ IMPORTED LOADER
@@ -101,7 +101,7 @@ export default function Bookings() {
   }
 
   /* ================= EFFECTS ================= */
-  // Fetch Bookings
+  // 1. Fetch Bookings (Initial)
   useEffect(() => {
     const fetchBookings = async () => {
       const token = localStorage.getItem("token");
@@ -130,6 +130,19 @@ export default function Bookings() {
 
     fetchBookings();
   }, []);
+
+  // 2. ✅ FILTER LOADING EFFECT (New)
+  // Triggers animation whenever a filter dependency changes
+  useEffect(() => {
+    if (bookings.length > 0) {
+      setLoading(true);
+      const timer = setTimeout(() => {
+        setLoading(false);
+      }, 500); // 0.5s delay to show "Fetching details..." animation
+      return () => clearTimeout(timer);
+    }
+  }, [filterType, selectedYear, selectedMonth, selectedQuarter]); 
+  // Note: We exclude 'searchQuery' to prevent flashing while typing
 
   // Close Export Menu on Click Outside
   useEffect(() => {
@@ -344,16 +357,10 @@ export default function Bookings() {
   });
 
   /* ================= RENDER ================= */
-  
-  // ✅ DISPLAY LOADER IF FETCHING
-  if (loading) {
-    return <BookingsLoader />;
-  }
-
   return (
     <div className="p-6 md:p-10 space-y-6 pb-24">
       
-      {/* 1. HEADER */}
+      {/* 1. HEADER (Always Visible) */}
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-800 dark:text-white">
@@ -494,52 +501,59 @@ export default function Bookings() {
         </div>
       </div>
 
-      {/* 3. BOOKINGS LIST (Cards Style) */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
-        {filteredBookings.length === 0 ? (
-          <div className="p-12 text-center flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
-            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                <Briefcase size={32} className="opacity-50" />
-            </div>
-            <p className="text-lg font-medium">No trips found</p>
-            <p className="text-sm">Try adjusting filters or create a new one.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-700">
-            {filteredBookings.map((b) => (
-              <div
-                key={b._id}
-                onClick={() => navigate(`/bookings/${b._id}`)}
-                className="flex items-center justify-between p-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors group"
-              >
-                <div className="flex items-center gap-4">
-                  {/* 🎨 DYNAMIC ICON */}
-                  <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
-                    {getTripIcon(b.name)}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-800 dark:text-white text-lg">
-                      {b.name}
-                    </h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                       <span className="font-medium text-slate-600 dark:text-slate-300">{b.clientName}</span>
-                       <span>•</span>
-                       <span>{formatDate(b.date)}</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <p className="font-bold text-emerald-600 dark:text-emerald-400 text-lg">
-                    {formatMoney(b.totalClientPayment)}
-                  </p>
-                  <p className="text-xs text-slate-400">Total Value</p>
-                </div>
+      {/* 3. BOOKINGS LIST (With Conditional Loading) */}
+      {/* ✅ This prevents the header from disappearing during load */}
+      {loading ? (
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 shadow-sm min-h-[400px] flex items-center justify-center">
+            <BookingsLoader />
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm animate-in fade-in duration-300">
+          {filteredBookings.length === 0 ? (
+            <div className="p-12 text-center flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+              <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                  <Briefcase size={32} className="opacity-50" />
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              <p className="text-lg font-medium">No trips found</p>
+              <p className="text-sm">Try adjusting filters or create a new one.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-700">
+              {filteredBookings.map((b) => (
+                <div
+                  key={b._id}
+                  onClick={() => navigate(`/bookings/${b._id}`)}
+                  className="flex items-center justify-between p-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors group"
+                >
+                  <div className="flex items-center gap-4">
+                    {/* 🎨 DYNAMIC ICON */}
+                    <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+                      {getTripIcon(b.name)}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800 dark:text-white text-lg">
+                        {b.name}
+                      </h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                         <span className="font-medium text-slate-600 dark:text-slate-300">{b.clientName}</span>
+                         <span>•</span>
+                         <span>{formatDate(b.date)}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="font-bold text-emerald-600 dark:text-emerald-400 text-lg">
+                      {formatMoney(b.totalClientPayment)}
+                    </p>
+                    <p className="text-xs text-slate-400">Total Value</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 4. NEW BOOKING MODAL */}
       {showForm && (
