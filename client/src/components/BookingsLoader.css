@@ -1,15 +1,14 @@
-/* Container: Dark Card Appearance */
-.loader-container-dark {
+/* Container: Clean White Background */
+.loader-container-light {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
   min-height: 400px;
-  background-color: #0f172a; /* Slate-900: Deep Dark Background */
+  background-color: #ffffff; /* Pure White */
   border-radius: 1rem;
   position: relative;
-  overflow: hidden;
 }
 
 .loader-content {
@@ -17,60 +16,64 @@
   flex-direction: column;
   align-items: center;
   gap: 1.5rem;
-  z-index: 10;
+  width: 100%;
+  max-width: 300px; /* Constrain width for the bar */
 }
 
-/* Icon Cycler: Glowing Circle */
-.icon-cycler {
-  width: 80px;
-  height: 80px;
-  background: rgba(255, 255, 255, 0.05); /* Subtle Glassmorphism */
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
+/* Icon Cycler: Light & Airy */
+.icon-cycler-light {
+  width: 72px;
+  height: 72px;
+  background: #eff6ff; /* Blue-50 */
+  border-radius: 50%; /* Circle */
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #38bdf8; /* Sky-400: Bright Cyan/Blue Icon Color */
-  box-shadow: 0 0 30px -5px rgba(56, 189, 248, 0.15); /* Soft Glow */
+  color: #2563eb; /* Blue-600 (Brand Color) */
+  margin-bottom: 0.5rem;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1); /* Soft Blue Shadow */
 }
 
-/* Animation for Icon Transition */
-.animate-fade-scale {
-  animation: fadeScale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+/* Pop Animation for Icons */
+.animate-pop-in {
+  animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-@keyframes fadeScale {
-  0% {
-    opacity: 0;
-    transform: scale(0.5) rotate(-10deg);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) rotate(0deg);
-  }
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
-/* Dark Theme Loading Bar */
-.loading-track-dark {
-  width: 180px;
-  height: 4px;
-  background-color: #1e293b; /* Slate-800 */
+/* Progress Bar Container */
+.progress-container {
+  width: 100%;
+  padding: 0 1rem;
+}
+
+/* Track: Subtle Gray */
+.progress-track-light {
+  width: 100%;
+  height: 6px;
+  background-color: #f1f5f9; /* Slate-100 */
   border-radius: 99px;
   overflow: hidden;
   position: relative;
 }
 
-.loading-bar-dark {
-  width: 50%;
+/* Bar: Brand Color Gradient */
+.progress-bar-light {
   height: 100%;
-  background: linear-gradient(90deg, #38bdf8, #818cf8); /* Cyan to Indigo Gradient */
+  width: 30%;
+  background: linear-gradient(90deg, #2563eb, #3b82f6); /* Blue-600 to Blue-500 */
   border-radius: 99px;
   position: absolute;
-  animation: shimmerDark 1.5s infinite ease-in-out;
+  left: 0;
+  animation: linearProgress 1.5s infinite ease-in-out;
 }
 
-@keyframes shimmerDark {
-  0% { left: -50%; }
-  50% { left: 25%; width: 50%; }
-  100% { left: 100%; width: 20%; }
+/* Animation: Smooth Sliding */
+@keyframes linearProgress {
+  0% { left: -30%; width: 30%; }
+  50% { left: 30%; width: 50%; }
+  100% { left: 100%; width: 30%; }
 }

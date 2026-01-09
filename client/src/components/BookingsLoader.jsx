@@ -12,7 +12,7 @@ import {
 const BookingsLoader = () => {
   const [activeIconIndex, setActiveIconIndex] = useState(0);
   
-  // 🎨 Iconly-style Icons to cycle through
+  // 🎨 Cycle through travel icons
   const icons = [
     { component: <Plane size={32} />, label: "Flights" },
     { component: <Building2 size={32} />, label: "Hotels" },
@@ -25,37 +25,40 @@ const BookingsLoader = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveIconIndex((prev) => (prev + 1) % icons.length);
-    }, 600); // Cycle every 600ms
+    }, 600); // Switch icon every 600ms
     return () => clearInterval(interval);
   }, []);
 
   const ActiveIcon = icons[activeIconIndex].component;
 
   return (
-    <div className="loader-container-dark">
+    <div className="loader-container-light">
       <div className="loader-content">
         
         {/* Animated Icon Circle */}
-        <div className="icon-cycler">
-          <div key={activeIconIndex} className="icon-wrapper animate-fade-scale">
+        <div className="icon-cycler-light">
+          <div key={activeIconIndex} className="icon-wrapper animate-pop-in">
             {ActiveIcon}
           </div>
         </div>
 
-        {/* Loading Bar */}
-        <div className="loading-track-dark">
-          <div className="loading-bar-dark"></div>
-        </div>
-
         {/* Text */}
-        <div className="text-center space-y-2">
-          <h3 className="text-lg font-bold text-white tracking-wide">
+        <div className="text-center space-y-1 mb-2">
+          <h3 className="text-lg font-bold text-slate-800 tracking-tight">
             Fetching details...
           </h3>
-          <p className="text-sm text-slate-400">
-            Hold tight, we're organizing your trips
+          <p className="text-sm text-slate-500 font-medium">
+            Syncing your latest trip data
           </p>
         </div>
+
+        {/* Modern Linear Progress Bar */}
+        <div className="progress-container">
+          <div className="progress-track-light">
+            <div className="progress-bar-light"></div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
