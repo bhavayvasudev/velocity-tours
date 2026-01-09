@@ -12,11 +12,12 @@ import {
   FileText, 
   CreditCard, 
   Loader2,
-  Plane,      // ✈️ Added
-  Building2,  // 🏨 Added
-  Globe       // 🌍 Added
+  Plane,      
+  Building2,  
+  Globe      
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import BookingsLoader from "./BookingsLoader"; // ✅ IMPORTED LOADER
 
 // ✅ LIVE BACKEND URL
 const API_URL = "https://velocity-tours.vercel.app";
@@ -26,6 +27,7 @@ export default function Bookings() {
 
   /* ================= STATE ================= */
   const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true); // ✅ LOADING STATE
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -103,19 +105,26 @@ export default function Bookings() {
   useEffect(() => {
     const fetchBookings = async () => {
       const token = localStorage.getItem("token");
-      if (!token) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
       try {
+        setLoading(true); // ✅ Start Loading
         const res = await fetch(`${API_URL}/api/bookings`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (!res.ok) return;
+        if (!res.ok) throw new Error("Failed to fetch");
 
         const data = await res.json();
         setBookings(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Error fetching bookings:", error);
+      } finally {
+        // ✅ Stop Loading (with small buffer for smoothness)
+        setTimeout(() => setLoading(false), 800);
       }
     };
 
@@ -335,6 +344,12 @@ export default function Bookings() {
   });
 
   /* ================= RENDER ================= */
+  
+  // ✅ DISPLAY LOADER IF FETCHING
+  if (loading) {
+    return <BookingsLoader />;
+  }
+
   return (
     <div className="p-6 md:p-10 space-y-6 pb-24">
       
