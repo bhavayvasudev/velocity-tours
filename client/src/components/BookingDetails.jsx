@@ -17,6 +17,9 @@ import {
   CreditCard
 } from "lucide-react";
 
+// Import the animated loader
+import BookingsLoader from './BookingsLoader';
+
 // ✅ LIVE BACKEND URL
 const API_URL = "https://velocity-tours.vercel.app";
 
@@ -166,7 +169,8 @@ export default function BookingDetails() {
   };
 
   /* ================= CALCULATIONS ================= */
-  if (!booking) return <div className="p-10 text-center text-slate-500">Loading...</div>;
+  // REPLACED PLAIN TEXT WITH ANIMATED LOADER
+  if (!booking) return <BookingsLoader />;
 
   // 1. Client Stats
   const clientPending = booking.totalClientPayment - booking.clientPaidAmount;
@@ -218,33 +222,12 @@ export default function BookingDetails() {
                 </button>
               )}
             </h1>
-
-            {/* ✅ EDITABLE DATE AND CLIENT NAME */}
-            {isEditingBooking ? (
-              <div className="flex items-center gap-3 mt-2">
-                <input 
-                  type="date"
-                  className="bg-transparent border-b border-slate-300 dark:border-slate-600 focus:border-blue-500 outline-none text-sm text-slate-600 dark:text-slate-300"
-                  value={editBookingData.date ? new Date(editBookingData.date).toISOString().split('T')[0] : ''}
-                  onChange={(e) => setEditBookingData({...editBookingData, date: e.target.value})}
-                />
-                <span className="text-slate-300">•</span>
-                <input 
-                  type="text"
-                  className="bg-transparent border-b border-slate-300 dark:border-slate-600 focus:border-blue-500 outline-none text-sm text-slate-600 dark:text-slate-300 placeholder:text-slate-400"
-                  value={editBookingData.clientName}
-                  onChange={(e) => setEditBookingData({...editBookingData, clientName: e.target.value})}
-                  placeholder="Passenger Name"
-                />
-              </div>
-            ) : (
-              <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-1">
-                <Calendar size={14} /> 
-                {new Date(booking.date).toLocaleDateString('en-IN', { dateStyle: 'long' })}
-                <span className="mx-1">•</span>
-                {booking.clientName}
-              </p>
-            )}
+            <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-1">
+              <Calendar size={14} /> 
+              {new Date(booking.date).toLocaleDateString('en-IN', { dateStyle: 'long' })}
+              <span className="mx-1">•</span>
+              {booking.clientName}
+            </p>
           </div>
         </div>
 
@@ -297,7 +280,7 @@ export default function BookingDetails() {
                  {isEditingBooking ? (
                    <input 
                      type="number"
-                     className="w-full mt-1 bg-white dark:bg-slate-900 p-1 rounded border border-slate-200 dark:border-slate-600"
+                     className="w-full mt-1 bg-white p-1 rounded border"
                      value={editBookingData.clientPaidAmount}
                      onChange={(e) => setEditBookingData({...editBookingData, clientPaidAmount: Number(e.target.value)})}
                    />
@@ -401,7 +384,7 @@ export default function BookingDetails() {
                       {editingExpenseId === expense._id ? (
                          <div className="space-y-2">
                             <input 
-                              className="w-full p-2 border rounded text-sm dark:bg-slate-900 dark:border-slate-600 dark:text-white"
+                              className="w-full p-2 border rounded text-sm"
                               placeholder="Vendor Name"
                               value={editExpenseData.vendorName}
                               onChange={(e) => setEditExpenseData({...editExpenseData, vendorName: e.target.value})}
@@ -409,7 +392,7 @@ export default function BookingDetails() {
                             <div className="flex gap-2">
                               <input 
                                 type="number"
-                                className="w-1/2 p-2 border rounded text-sm dark:bg-slate-900 dark:border-slate-600 dark:text-white"
+                                className="w-1/2 p-2 border rounded text-sm"
                                 placeholder="Cost"
                                 value={editExpenseData.amount}
                                 onChange={(e) => setEditExpenseData({...editExpenseData, amount: Number(e.target.value)})}
@@ -432,11 +415,11 @@ export default function BookingDetails() {
 
                     {/* EDIT ACTIONS (Hover) */}
                     {!editingExpenseId && (
-                      <div className="hidden group-hover:flex flex-col gap-1 absolute right-2 top-2 bg-white dark:bg-slate-800 shadow-md p-1 rounded-lg border dark:border-slate-600 z-10">
-                         <button onClick={() => { setEditingExpenseId(expense._id); setEditExpenseData(expense); }} className="p-1 text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 rounded">
+                      <div className="hidden group-hover:flex flex-col gap-1 absolute right-2 top-2 bg-white dark:bg-slate-800 shadow-md p-1 rounded-lg border z-10">
+                         <button onClick={() => { setEditingExpenseId(expense._id); setEditExpenseData(expense); }} className="p-1 text-blue-500 hover:bg-blue-50 rounded">
                            <Edit2 size={12} />
                          </button>
-                         <button onClick={() => handleDeleteExpense(expense._id)} className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-slate-700 rounded">
+                         <button onClick={() => handleDeleteExpense(expense._id)} className="p-1 text-red-500 hover:bg-red-50 rounded">
                            <Trash2 size={12} />
                          </button>
                       </div>
