@@ -21,7 +21,9 @@ import {
 import BookingsLoader from './BookingsLoader';
 
 // ✅ LIVE BACKEND URL
+// If testing locally, uncomment the localhost line
 const API_URL = "https://velocity-tours.vercel.app";
+// const API_URL = "http://localhost:5000"; 
 
 export default function BookingDetails() {
   const navigate = useNavigate();
@@ -113,20 +115,36 @@ export default function BookingDetails() {
 
   /* ================= HANDLERS ================= */
   const handleUpdateBooking = async () => {
-    await fetch(`${API_URL}/api/bookings/${bookingId}`, {
-      method: "PUT",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(editBookingData)
-    });
-    setIsEditingBooking(false);
-    fetchData();
+    // 🛑 FIX 1: Sanitize Payload (Fixes 500 Error)
+    const { _id, __v, ...cleanPayload } = editBookingData;
+
+    try {
+      const res = await fetch(`${API_URL}/api/bookings/${bookingId}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(cleanPayload)
+      });
+
+      if (!res.ok) {
+        console.error("Server Error:", await res.text());
+        return;
+      }
+
+      setIsEditingBooking(false);
+      fetchData();
+    } catch (error) {
+      console.error("Network error:", error);
+    }
   };
 
   const handleUpdateExpense = async (expenseId) => {
+    // 🛑 FIX 1: Sanitize Expense Payload too
+    const { _id, __v, ...cleanPayload } = editExpenseData;
+
     await fetch(`${API_URL}/api/expenses/${expenseId}`, {
       method: "PUT",
       headers: getAuthHeaders(),
-      body: JSON.stringify(editExpenseData)
+      body: JSON.stringify(cleanPayload)
     });
     setEditingExpenseId(null);
     fetchData();
@@ -169,7 +187,6 @@ export default function BookingDetails() {
   };
 
   /* ================= CALCULATIONS ================= */
-  // REPLACED PLAIN TEXT WITH ANIMATED LOADER
   if (!booking) return <BookingsLoader />;
 
   // 1. Client Stats
@@ -222,12 +239,34 @@ export default function BookingDetails() {
                 </button>
               )}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-1">
-              <Calendar size={14} /> 
-              {new Date(booking.date).toLocaleDateString('en-IN', { dateStyle: 'long' })}
-              <span className="mx-1">•</span>
-              {booking.clientName}
-            </p>
+
+            {/* ✅ FIX 2: EDITABLE DATE AND CLIENT NAME */}
+            {isEditingBooking ? (
+              <div className="flex items-center gap-3 mt-2">
+                <input 
+                  type="date"
+                  className="bg-transparent border-b border-slate-300 dark:border-slate-600 focus:border-blue-500 outline-none text-sm text-slate-600 dark:text-slate-300"
+                  // Ensure date format is YYYY-MM-DD for input type="date"
+                  value={editBookingData.date ? new Date(editBookingData.date).toISOString().split('T')[0] : ''}
+                  onChange={(e) => setEditBookingData({...editBookingData, date: e.target.value})}
+                />
+                <span className="text-slate-300">•</span>
+                <input 
+                  type="text"
+                  className="bg-transparent border-b border-slate-300 dark:border-slate-600 focus:border-blue-500 outline-none text-sm text-slate-600 dark:text-slate-300 placeholder:text-slate-400"
+                  value={editBookingData.clientName}
+                  onChange={(e) => setEditBookingData({...editBookingData, clientName: e.target.value})}
+                  placeholder="Passenger Name"
+                />
+              </div>
+            ) : (
+              <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-1">
+                <Calendar size={14} /> 
+                {new Date(booking.date).toLocaleDateString('en-IN', { dateStyle: 'long' })}
+                <span className="mx-1">•</span>
+                {booking.clientName}
+              </p>
+            )}
           </div>
         </div>
 
@@ -280,7 +319,7 @@ export default function BookingDetails() {
                  {isEditingBooking ? (
                    <input 
                      type="number"
-                     className="w-full mt-1 bg-white p-1 rounded border"
+                     className="w-full mt-1 bg-white dark:bg-slate-900 p-1 rounded border border-slate-200 dark:border-slate-600 dark:text-white"
                      value={editBookingData.clientPaidAmount}
                      onChange={(e) => setEditBookingData({...editBookingData, clientPaidAmount: Number(e.target.value)})}
                    />
@@ -384,7 +423,7 @@ export default function BookingDetails() {
                       {editingExpenseId === expense._id ? (
                          <div className="space-y-2">
                             <input 
-                              className="w-full p-2 border rounded text-sm"
+                              className="w-full p-2 border rounded text-sm dark:bg-slate-900 dark:border-slate-600 dark:text-white"
                               placeholder="Vendor Name"
                               value={editExpenseData.vendorName}
                               onChange={(e) => setEditExpenseData({...editExpenseData, vendorName: e.target.value})}
@@ -392,7 +431,7 @@ export default function BookingDetails() {
                             <div className="flex gap-2">
                               <input 
                                 type="number"
-                                className="w-1/2 p-2 border rounded text-sm"
+                                className="w-1/2 p-2 border rounded text-sm dark:bg-slate-900 dark:border-slate-600 dark:text-white"
                                 placeholder="Cost"
                                 value={editExpenseData.amount}
                                 onChange={(e) => setEditExpenseData({...editExpenseData, amount: Number(e.target.value)})}
@@ -415,11 +454,11 @@ export default function BookingDetails() {
 
                     {/* EDIT ACTIONS (Hover) */}
                     {!editingExpenseId && (
-                      <div className="hidden group-hover:flex flex-col gap-1 absolute right-2 top-2 bg-white dark:bg-slate-800 shadow-md p-1 rounded-lg border z-10">
-                         <button onClick={() => { setEditingExpenseId(expense._id); setEditExpenseData(expense); }} className="p-1 text-blue-500 hover:bg-blue-50 rounded">
+                      <div className="hidden group-hover:flex flex-col gap-1 absolute right-2 top-2 bg-white dark:bg-slate-800 shadow-md p-1 rounded-lg border dark:border-slate-600 z-10">
+                         <button onClick={() => { setEditingExpenseId(expense._id); setEditExpenseData(expense); }} className="p-1 text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 rounded">
                            <Edit2 size={12} />
                          </button>
-                         <button onClick={() => handleDeleteExpense(expense._id)} className="p-1 text-red-500 hover:bg-red-50 rounded">
+                         <button onClick={() => handleDeleteExpense(expense._id)} className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-slate-700 rounded">
                            <Trash2 size={12} />
                          </button>
                       </div>
