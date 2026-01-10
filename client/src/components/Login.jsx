@@ -96,7 +96,7 @@ export default function Login() {
                     type="email"
                     required
                     className="block w-full pl-11 pr-4 py-3.5 bg-white/50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300 shadow-sm"
-                    placeholder="admin@velocity.in"
+                    placeholder="Enter the Email ID"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
