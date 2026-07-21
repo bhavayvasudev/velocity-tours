@@ -25,7 +25,13 @@ router.post("/", verifyToken, async (req, res) => {
     clientName: req.body.clientName,
     totalClientPayment: req.body.totalClientPayment,
     clientPaidAmount: req.body.clientPaidAmount || 0,
-    date: req.body.date
+    date: req.body.date,
+    invoiceNumber: req.body.invoiceNumber || "",
+    paymentStatus: req.body.paymentStatus || "pending",
+    paymentMode: req.body.paymentMode || "",
+    bankName: req.body.bankName || "",
+    paymentReference: req.body.paymentReference || "",
+    remarks: req.body.remarks || ""
   });
 
   try {

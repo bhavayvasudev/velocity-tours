@@ -1,11 +1,14 @@
-@import "tailwindcss";
+/* HeroUI v3 ships its own "@import tailwindcss" internally (in the right
+   cascade-layer order alongside its component/theme layers), so we import
+   it instead of importing tailwindcss directly. */
+@import "@heroui/react/styles";
 
 /* Enable dark mode variant */
 @variant dark (&:where(.dark, .dark *));
 
 /* Tailwind v4 THEME */
 @theme {
-  /* 🎨 Colors */
+  /* Brand colors */
   --color-primary: #3C50E0;
   --color-secondary: #80CAEE;
   --color-dark: #1E293B;
@@ -13,7 +16,31 @@
   --color-danger: #E3342F;
   --color-success: #38C172;
 
-  /* 📱 Breakpoints (THIS FIXES YOUR SIDEBAR ISSUE) */
+  /* Semantic surface tokens for the new design system */
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #F8FAFC;
+  --color-border-subtle: #E2E8F0;
+  --color-text-muted: #64748B;
+
+  /* Pastel tint surfaces — the Bankio-style accent cards (Cash Flow,
+     Business Overview) sit a shade off pure white/blue/mint rather than
+     using saturated fills, so they read as soft, not loud. */
+  --color-tint-blue: #EAF1FF;
+  --color-tint-blue-strong: #DCE9FF;
+  --color-tint-mint: #E9F7F1;
+  --color-tint-mint-strong: #DBF2E7;
+  --color-app-bg-from: #EEF3FC;
+  --color-app-bg-to: #E4ECFB;
+
+  /* Soft shadow used by every floating/raised surface (pill nav, FAB,
+     cards) so elevation reads as one consistent material across the app. */
+  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px -12px rgba(15, 23, 42, 0.12);
+  --shadow-soft-lg: 0 4px 8px rgba(15, 23, 42, 0.04), 0 24px 48px -16px rgba(15, 23, 42, 0.18);
+
+  /* Motion */
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Breakpoints (THIS FIXES YOUR SIDEBAR ISSUE) */
   --breakpoint-sm: 640px;
   --breakpoint-md: 768px;
   --breakpoint-lg: 1024px;
@@ -21,9 +48,62 @@
   --breakpoint-2xl: 1536px;
 }
 
+/* Bumps HeroUI's global --radius token (default 0.5rem) so form fields,
+   selects and popovers read as soft, pill-like surfaces — the app's own
+   Card/Button/Badge already round past the pill threshold at the default,
+   but --radius-field (fields/selects/dropdown triggers) doesn't clear it
+   until the base token grows. Popover/modal corners are hard-capped at
+   32px in HeroUI's own CSS, so this can't over-round large surfaces. */
+:root {
+  --radius: 0.7rem;
+}
+
+:root.dark {
+  --color-surface: #1E293B;
+  --color-surface-muted: #0F172A;
+  --color-border-subtle: #334155;
+  --color-text-muted: #94A3B8;
+
+  --color-tint-blue: #1E293B;
+  --color-tint-blue-strong: #24304a;
+  --color-tint-mint: #1E293B;
+  --color-tint-mint-strong: #203a30;
+  --color-app-bg-from: #0B1220;
+  --color-app-bg-to: #0F172A;
+
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.2), 0 12px 32px -12px rgba(0, 0, 0, 0.5);
+  --shadow-soft-lg: 0 4px 8px rgba(0, 0, 0, 0.2), 0 24px 48px -16px rgba(0, 0, 0, 0.6);
+}
+
+/* HeroUI reads .dark on <html> already (matches this app's existing
+   Settings.jsx theme toggle) -- no extra wiring needed for its internal
+   component theming. */
+
 /* Base styles */
 body {
   background-color: var(--color-light);
   color: var(--color-dark);
   font-family: system-ui, sans-serif;
+}
+
+/* Used by the floating pill nav so it can scroll horizontally on narrow
+   viewports without showing a scrollbar track across the capsule shape. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* The floating pill nav's active-state indicator — a measured absolute
+   span (see ui/PillNav.jsx), not a framer-motion layoutId, since layoutId's
+   projection math conflicts with the sticky header it lives in. */
+.nav-pill-indicator {
+  transition: left 0.35s var(--ease-premium), width 0.35s var(--ease-premium);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-pill-indicator {
+    transition: none;
+  }
 }

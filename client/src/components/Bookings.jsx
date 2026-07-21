@@ -1,40 +1,214 @@
-import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { 
-  Plus, 
-  Calendar, 
-  Filter, 
-  X, 
-  Search, 
-  Briefcase, 
-  Download, 
-  ChevronDown, 
-  FileText, 
-  CreditCard, 
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  Plus,
+  Briefcase,
+  Download,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  CreditCard,
   Loader2,
-  Plane,      
-  Building2,  
-  Globe       
+  Plane,
+  Building2,
+  Globe,
+  Calendar,
+  Edit2,
+  ArrowDownLeft,
+  MoreHorizontal,
+  Trash2,
+  Eye
 } from "lucide-react";
-import * as XLSX from "xlsx";
-import BookingsLoader from "./BookingsLoader"; // ✅ IMPORTED LOADER
+import BookingsLoader from "./BookingsLoader";
+import { API_URL as BASE_API_URL, authHeaders } from "../lib/api";
+import { openInvoice } from "../lib/invoice";
+import { deriveStatus } from "../lib/status";
+import { exportLedger, exportServiceTaxReport } from "../lib/excelExport";
+import PageHeader from "./ui/PageHeader";
+import Button from "./ui/Button";
+import Select from "./ui/Select";
+import Dropdown from "./ui/Dropdown";
+import Dialog from "./ui/Dialog";
+import EmptyState from "./ui/EmptyState";
+import FilterBar from "./ui/FilterBar";
+import SearchField from "./ui/SearchField";
+import { TextInput } from "./ui/Field";
 
-// ✅ LIVE BACKEND URL
-const API_URL = "https://velocity-tours.vercel.app";
+const API_URL = `${BASE_API_URL}/api`;
+
+// Soft pastel icon-chip tones per trip type — echoes the reference app's
+// per-merchant icon color instead of every row wearing the same blue chip.
+const TRIP_ICON_TONES = {
+  flight: { icon: Plane, tone: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" },
+  stay: { icon: Building2, tone: "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-300" },
+  visa: { icon: Globe, tone: "bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-300" },
+  default: { icon: Calendar, tone: "bg-slate-100 text-slate-500 dark:bg-slate-700/60 dark:text-slate-300" },
+};
+
+// Payment-status pill tones for the booking card feed — a colored dot +
+// tinted background instead of the flat admin-dashboard badge, so status
+// reads at a glance the way a banking app's transaction state does.
+const PAYMENT_STATUS_PILL = {
+  paid: { dot: "bg-emerald-500", tint: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300", label: "Paid" },
+  partial: { dot: "bg-amber-500", tint: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300", label: "Partial Payment" },
+  pending: { dot: "bg-red-500", tint: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300", label: "Pending" },
+  cancelled: { dot: "bg-slate-500", tint: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300", label: "Cancelled" },
+};
+
+const formatMoney = (amount) =>
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(amount || 0);
+
+const formatDate = (dateString) =>
+  new Date(dateString).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" });
+
+// Dynamic per-trip-type icon + soft pastel chip tone
+const getTripIconMeta = (name) => {
+  const lower = (name || "").toLowerCase();
+  if (lower.includes("air") || lower.includes("flight") || lower.includes("ticket")) return TRIP_ICON_TONES.flight;
+  if (lower.includes("hotel") || lower.includes("room") || lower.includes("stay")) return TRIP_ICON_TONES.stay;
+  if (lower.includes("visa") || lower.includes("earth") || lower.includes("global") || lower.includes("world")) return TRIP_ICON_TONES.visa;
+  return TRIP_ICON_TONES.default;
+};
+
+const defaultFormValues = () => ({
+  name: "",
+  clientName: "",
+  totalClientPayment: "",
+  date: new Date().toISOString().split("T")[0],
+  invoiceNumber: "",
+  paymentStatus: "pending",
+  paymentMode: "",
+  bankName: "",
+  paymentReference: "",
+  remarks: "",
+});
+
+const bookingToFormValues = (booking) => ({
+  name: booking.name || "",
+  clientName: booking.clientName || "",
+  totalClientPayment: booking.totalClientPayment ?? "",
+  date: booking.date ? new Date(booking.date).toISOString().split("T")[0] : "",
+  invoiceNumber: booking.invoiceNumber || "",
+  paymentStatus: booking.paymentStatus || "pending",
+  paymentMode: booking.paymentMode || "",
+  bankName: booking.bankName || "",
+  paymentReference: booking.paymentReference || "",
+  remarks: booking.remarks || "",
+});
+
+function PaymentStatusPill({ status }) {
+  const style = PAYMENT_STATUS_PILL[status] || PAYMENT_STATUS_PILL.pending;
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${style.tint}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
+      {style.label}
+    </span>
+  );
+}
+
+// One booking, one card — no columns, no header row. Grouped naturally:
+// identity + amount up top, meta (date/invoice/mode) and status in the
+// middle, quick actions below a hairline divider. Modeled on a premium
+// banking transaction feed rather than an admin table row.
+function BookingCard({ booking, onOpenDetails, onEdit, onViewInvoice, onReceivePayment, onDelete }) {
+  const { icon: TripIcon, tone } = getTripIconMeta(booking.name);
+  const status = booking.paymentStatus || "pending";
+
+  return (
+    <div className="rounded-3xl border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-5 sm:p-6 shadow-[var(--shadow-soft)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-soft-lg)]">
+      <button type="button" onClick={() => onOpenDetails(booking)} className="flex w-full items-start gap-4 text-left">
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${tone}`}>
+          <TripIcon size={22} />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-base font-bold text-slate-800 dark:text-white">{booking.name}</p>
+              <p className="truncate text-sm text-slate-500 dark:text-slate-400">{booking.clientName}</p>
+            </div>
+            <p className="shrink-0 text-lg font-bold text-slate-800 dark:text-white">{formatMoney(booking.totalClientPayment)}</p>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <span className="inline-flex items-center gap-1.5">
+              <Calendar size={13} />
+              {formatDate(booking.date)}
+            </span>
+            {booking.invoiceNumber && (
+              <span className="inline-flex items-center gap-1.5">
+                <FileText size={13} />
+                Invoice #{booking.invoiceNumber}
+              </span>
+            )}
+            {booking.paymentMode && (
+              <span className="inline-flex items-center gap-1.5">
+                <CreditCard size={13} />
+                {booking.paymentMode}
+              </span>
+            )}
+          </div>
+
+          <div className="mt-3.5">
+            <PaymentStatusPill status={status} />
+          </div>
+        </div>
+      </button>
+
+      <div className="mt-5 flex items-center justify-between gap-2 border-t border-[var(--color-border-subtle)]/70 pt-4">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button variant="ghost" size="sm" icon={Edit2} onPress={() => onEdit(booking)}>Edit</Button>
+          <Button variant="ghost" size="sm" icon={FileText} onPress={() => onViewInvoice(booking)}>Invoice</Button>
+          <Button variant="ghost" size="sm" icon={ArrowDownLeft} onPress={() => onReceivePayment(booking)}>Receive Payment</Button>
+        </div>
+
+        <Dropdown
+          align="end"
+          trigger={
+            <Button variant="ghost" size="sm" icon={MoreHorizontal} aria-label="More actions" className="!rounded-full !px-2" />
+          }
+          items={[
+            { key: "details", label: "View Details", icon: Eye, onSelect: () => onOpenDetails(booking) },
+            { key: "delete", label: "Delete Booking", icon: Trash2, danger: true, onSelect: () => onDelete(booking) },
+          ]}
+        />
+      </div>
+    </div>
+  );
+}
+
+const bookingSchema = z.object({
+  name: z.string().min(1, "Trip name is required"),
+  clientName: z.string().min(1, "Client name is required"),
+  totalClientPayment: z.coerce.number().positive("Enter a valid amount"),
+  date: z.string().min(1, "Date is required"),
+  invoiceNumber: z.string().optional(),
+  paymentStatus: z.enum(["paid", "partial", "pending"]).default("pending"),
+  paymentMode: z.string().optional(),
+  bankName: z.string().optional(),
+  paymentReference: z.string().optional(),
+  remarks: z.string().optional(),
+});
 
 export default function Bookings() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   /* ================= STATE ================= */
   const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true); // ✅ LOADING STATE
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingBooking, setEditingBooking] = useState(null);
+  const [receivingBooking, setReceivingBooking] = useState(null);
+  const [receiveAmount, setReceiveAmount] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // Export State
   const [isExporting, setIsExporting] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
-  const exportMenuRef = useRef(null);
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
 
   // Filters
   const [filterType, setFilterType] = useState("all");
@@ -42,46 +216,18 @@ export default function Bookings() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedQuarter, setSelectedQuarter] = useState("Q1");
 
-  // New booking form
-  const [formData, setFormData] = useState({
-    name: "",
-    clientName: "",
-    totalClientPayment: "",
-    date: new Date().toISOString().split("T")[0],
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(bookingSchema),
+    defaultValues: defaultFormValues(),
   });
 
   /* ================= HELPERS ================= */
-  const formatMoney = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  // 🎨 DYNAMIC ICON LOGIC
-  const getTripIcon = (name) => {
-    const lower = name.toLowerCase();
-    if (lower.includes("air") || lower.includes("flight") || lower.includes("ticket")) {
-      return <Plane size={20} />;
-    }
-    if (lower.includes("hotel") || lower.includes("room") || lower.includes("stay")) {
-      return <Building2 size={20} />;
-    }
-    if (lower.includes("visa") || lower.includes("earth") || lower.includes("global") || lower.includes("world")) {
-      return <Globe size={20} />;
-    }
-    return <Calendar size={20} />; // Default
-  };
-
   // Tax Calculation (Inclusive 18%)
   const calculateTaxComponents = (amount) => {
     const base = Math.round(amount / 1.18);
@@ -101,7 +247,6 @@ export default function Bookings() {
   }
 
   /* ================= EFFECTS ================= */
-  // 1. Fetch Bookings (Initial)
   useEffect(() => {
     const fetchBookings = async () => {
       const token = localStorage.getItem("token");
@@ -111,9 +256,9 @@ export default function Bookings() {
       }
 
       try {
-        setLoading(true); // ✅ Start Loading
-        const res = await fetch(`${API_URL}/api/bookings`, {
-          headers: { Authorization: `Bearer ${token}` },
+        setLoading(true);
+        const res = await fetch(`${API_URL}/bookings`, {
+          headers: authHeaders(),
         });
 
         if (!res.ok) throw new Error("Failed to fetch");
@@ -123,7 +268,6 @@ export default function Bookings() {
       } catch (error) {
         console.error("Error fetching bookings:", error);
       } finally {
-        // ✅ Stop Loading (with small buffer for smoothness)
         setTimeout(() => setLoading(false), 800);
       }
     };
@@ -131,196 +275,38 @@ export default function Bookings() {
     fetchBookings();
   }, []);
 
-  // 2. ✅ FILTER LOADING EFFECT (New)
-  // Triggers animation whenever a filter dependency changes
+  // The floating nav's "New Booking" pill lands here with a state flag so
+  // the create dialog opens immediately instead of requiring an extra click
+  // once the list loads.
+  useEffect(() => {
+    if (location.state?.openCreate) {
+      setShowForm(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
+
   useEffect(() => {
     if (bookings.length > 0) {
       setLoading(true);
       const timer = setTimeout(() => {
         setLoading(false);
-      }, 500); // 0.5s delay to show "Fetching details..." animation
+      }, 500);
       return () => clearTimeout(timer);
     }
-  }, [filterType, selectedYear, selectedMonth, selectedQuarter]); 
-  // Note: We exclude 'searchQuery' to prevent flashing while typing
+  }, [filterType, selectedYear, selectedMonth, selectedQuarter]);
 
-  // Close Export Menu on Click Outside
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target)) {
-        setShowExportMenu(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    setPage(0);
+  }, [searchQuery, filterType, selectedYear, selectedMonth, selectedQuarter]);
 
-  /* ================= EXPORT LOGIC ================= */
-
-  // 1. PAYMENT REPORT
-  const handleExportPayment = () => {
-    const dataToExport = filteredBookings.map((b, index) => ({
-      "S. No": index + 1,
-      "Client Name": b.clientName,
-      "Amount (To Be Taken From Client)": b.totalClientPayment,
-      "Date of Receiving": new Date(b.date).toLocaleDateString("en-IN")
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    
-    // Auto-width columns
-    const wscols = [
-      { wch: 8 },  // S. No
-      { wch: 25 }, // Client Name
-      { wch: 30 }, // Amount
-      { wch: 20 }  // Date
-    ];
-    worksheet['!cols'] = wscols;
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Payment Report");
-    XLSX.writeFile(workbook, "Payment_Report.xlsx");
-    setShowExportMenu(false);
-  };
-
-  // 2. SERVICE TAX REPORT
-  const handleExportServiceTax = async () => {
-    setIsExporting(true);
-    const token = localStorage.getItem("token");
-
-    try {
-      // Fetch expenses for ALL filtered bookings to calculate profit/vendor tax
-      const enrichedBookings = await Promise.all(
-        filteredBookings.map(async (b) => {
-          let totalVendorCost = 0;
-          try {
-            // Fetch expenses for this specific booking
-            const res = await fetch(`${API_URL}/api/expenses/booking/${b._id}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-              const expenses = await res.json();
-              totalVendorCost = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-            }
-          } catch (e) {
-            console.error("Failed to fetch expenses for export", e);
-          }
-
-          const netProfit = b.totalClientPayment - totalVendorCost;
-          const clientTax = calculateTaxComponents(b.totalClientPayment);
-          const vendorTax = calculateTaxComponents(totalVendorCost);
-
-          return {
-            income: b.totalClientPayment,
-            profit: netProfit,
-            clientSGST: clientTax.sgst,
-            clientCGST: clientTax.cgst,
-            vendorCGST: vendorTax.cgst,
-            vendorSGST: vendorTax.sgst,
-            vendorIGST: 0
-          };
-        })
-      );
-
-      // Construct Array of Arrays for grouped headers
-      const ws_data = [
-        // Main Header Row
-        ["Total Income", "Amount (Profit)", "Client Output", "", "Vendor Output", "", ""],
-        // Sub Header Row
-        ["", "", "SGST", "CGST", "CGST", "SGST", "IGST"],
-        // Data Rows
-        ...enrichedBookings.map(d => [
-          d.income,
-          d.profit,
-          d.clientSGST,
-          d.clientCGST,
-          d.vendorCGST,
-          d.vendorSGST,
-          d.vendorIGST
-        ])
-      ];
-
-      // Create Sheet
-      const worksheet = XLSX.utils.aoa_to_sheet(ws_data);
-
-      // Merge Cells for Headers
-      worksheet['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } }, // Merge Total Income (A1:A2)
-        { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } }, // Merge Profit (B1:B2)
-        { s: { r: 0, c: 2 }, e: { r: 0, c: 3 } }, // Merge Client Output (C1:D1)
-        { s: { r: 0, c: 4 }, e: { r: 0, c: 6 } }, // Merge Vendor Output (E1:G1)
-      ];
-
-      // Formatting Columns
-      const wscols = [
-        { wch: 15 }, // Income
-        { wch: 15 }, // Profit
-        { wch: 10 }, // C-SGST
-        { wch: 10 }, // C-CGST
-        { wch: 10 }, // V-CGST
-        { wch: 10 }, // V-SGST
-        { wch: 10 }  // V-IGST
-      ];
-      worksheet['!cols'] = wscols;
-
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Service Tax Report");
-      XLSX.writeFile(workbook, "Service_Tax_Report.xlsx");
-
-    } catch (error) {
-      console.error("Export failed:", error);
-      alert("Failed to generate report. Please try again.");
-    } finally {
-      setIsExporting(false);
-      setShowExportMenu(false);
-    }
-  };
-
-  /* ================= CREATE BOOKING ================= */
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const token = localStorage.getItem("token");
-
-    try {
-      const res = await fetch(`${API_URL}/api/bookings`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          ...formData,
-          totalClientPayment: Number(formData.totalClientPayment),
-          clientPaidAmount: 0,
-        }),
-      });
-
-      if (!res.ok) return;
-
-      const newBooking = await res.json();
-      setBookings([newBooking, ...bookings]);
-      setShowForm(false);
-      setFormData({
-        name: "",
-        clientName: "",
-        totalClientPayment: "",
-        date: new Date().toISOString().split("T")[0],
-      });
-    } catch (error) {
-      console.error("Error creating booking:", error);
-    }
-  };
-
-  /* ================= FILTER LOGIC ================= */
-  const filteredBookings = bookings.filter((b) => {
-    // 1. Search Filter
-    const matchesSearch = 
-      b.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  /* ================= FILTER LOGIC (unchanged) ================= */
+  const filteredBookings = useMemo(() => bookings.filter((b) => {
+    const matchesSearch =
+      b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       b.clientName.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     if (!matchesSearch) return false;
 
-    // 2. Date Filter
     if (filterType === "all") return true;
 
     const d = new Date(b.date);
@@ -346,7 +332,7 @@ export default function Bookings() {
       };
       const [start, end] = ranges[selectedQuarter];
       const fy = selectedQuarter === "Q4" && m <= 2 ? selectedYear + 1 : selectedYear;
-      
+
       if (selectedQuarter === "Q4") {
          return (m >= 0 && m <= 2 && y === selectedYear + 1);
       }
@@ -354,275 +340,387 @@ export default function Bookings() {
     }
 
     return true;
-  });
+  }), [bookings, searchQuery, filterType, selectedYear, selectedMonth, selectedQuarter]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredBookings.length / pageSize));
+  const pagedBookings = useMemo(
+    () => filteredBookings.slice(page * pageSize, page * pageSize + pageSize),
+    [filteredBookings, page]
+  );
+
+  /* ================= EXPORT LOGIC (unchanged calculations) ================= */
+
+  // 1. PAYMENT REPORT — columns extended to mirror the company's historical
+  // ledger layout (invoice no / date / amount / name / bank received /
+  // amount received / pending / remarks).
+  const handleExportPayment = () => {
+    exportLedger("Payment_Report.xlsx", {
+      sheetName: "Payment Report",
+      title: "Velocity Tours — Payment Report",
+      columns: [
+        { key: "invoiceNumber", header: "Invoice No", value: (b) => b.invoiceNumber || "—" },
+        { key: "date", header: "Date", value: (b) => new Date(b.date).toLocaleDateString("en-IN") },
+        { key: "totalClientPayment", header: "Amount", align: "right", currency: true },
+        { key: "clientName", header: "Name" },
+        { key: "paymentMode", header: "Received (Bank/Mode)", value: (b) => b.paymentMode || "" },
+        { key: "clientPaidAmount", header: "Amount Received", align: "right", currency: true },
+        { key: "pending", header: "Pending", align: "right", currency: true, pendingHighlight: true, value: (b) => b.totalClientPayment - (b.clientPaidAmount || 0) },
+        { key: "remarks", header: "Remarks", value: (b) => b.remarks || "" },
+      ],
+      rows: filteredBookings,
+      totalsColumns: ["totalClientPayment", "clientPaidAmount", "pending"],
+    });
+  };
+
+  // 2. SERVICE TAX REPORT (unchanged)
+  const handleExportServiceTax = async () => {
+    setIsExporting(true);
+
+    try {
+      const enrichedBookings = await Promise.all(
+        filteredBookings.map(async (b) => {
+          let totalVendorCost = 0;
+          try {
+            const res = await fetch(`${API_URL}/expenses/booking/${b._id}`, {
+              headers: authHeaders(),
+            });
+            if (res.ok) {
+              const expenses = await res.json();
+              totalVendorCost = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+            }
+          } catch (e) {
+            console.error("Failed to fetch expenses for export", e);
+          }
+
+          const netProfit = b.totalClientPayment - totalVendorCost;
+          const clientTax = calculateTaxComponents(b.totalClientPayment);
+          const vendorTax = calculateTaxComponents(totalVendorCost);
+
+          return {
+            income: b.totalClientPayment,
+            profit: netProfit,
+            clientSGST: clientTax.sgst,
+            clientCGST: clientTax.cgst,
+            vendorCGST: vendorTax.cgst,
+            vendorSGST: vendorTax.sgst,
+            vendorIGST: 0
+          };
+        })
+      );
+
+      await exportServiceTaxReport("Service_Tax_Report.xlsx", enrichedBookings);
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Failed to generate report. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  /* ================= CREATE BOOKING ================= */
+  const onSubmit = async (values) => {
+    try {
+      const payload = { ...values, totalClientPayment: Number(values.totalClientPayment) };
+
+      if (editingBooking) {
+        const res = await fetch(`${API_URL}/bookings/${editingBooking._id}`, {
+          method: "PUT",
+          headers: authHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) return;
+        const updated = await res.json();
+        setBookings((prev) => prev.map((b) => (b._id === updated._id ? updated : b)));
+      } else {
+        const res = await fetch(`${API_URL}/bookings`, {
+          method: "POST",
+          headers: authHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({ ...payload, clientPaidAmount: 0 }),
+        });
+        if (!res.ok) return;
+        const newBooking = await res.json();
+        setBookings((prev) => [newBooking, ...prev]);
+      }
+
+      setShowForm(false);
+      setEditingBooking(null);
+      reset(defaultFormValues());
+    } catch (error) {
+      console.error("Error saving booking:", error);
+    }
+  };
+
+  const handleNewBooking = () => {
+    setEditingBooking(null);
+    reset(defaultFormValues());
+    setShowForm(true);
+  };
+
+  const handleEditBooking = (booking) => {
+    setEditingBooking(booking);
+    reset(bookingToFormValues(booking));
+    setShowForm(true);
+  };
+
+  const openReceivePayment = (booking) => {
+    setReceivingBooking(booking);
+    setReceiveAmount("");
+  };
+
+  const submitReceivePayment = async () => {
+    if (!receivingBooking) return;
+    const amount = Number(receiveAmount);
+    if (!amount || amount <= 0) return;
+
+    const newPaid = Math.min((receivingBooking.clientPaidAmount || 0) + amount, receivingBooking.totalClientPayment);
+    try {
+      const res = await fetch(`${API_URL}/bookings/${receivingBooking._id}`, {
+        method: "PUT",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          clientPaidAmount: newPaid,
+          paymentStatus: deriveStatus(receivingBooking.totalClientPayment, newPaid),
+        }),
+      });
+      if (!res.ok) return;
+      const updated = await res.json();
+      setBookings((prev) => prev.map((b) => (b._id === updated._id ? updated : b)));
+      setReceivingBooking(null);
+      setReceiveAmount("");
+    } catch (error) {
+      console.error("Error recording payment:", error);
+    }
+  };
+
+  const handleDeleteBooking = async (booking) => {
+    if (!window.confirm(`Delete "${booking.name}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`${API_URL}/bookings/${booking._id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (!res.ok) return;
+      setBookings((prev) => prev.filter((b) => b._id !== booking._id));
+    } catch (error) {
+      console.error("Error deleting booking:", error);
+    }
+  };
 
   /* ================= RENDER ================= */
   return (
-    <div className="p-6 md:p-10 space-y-6 pb-24">
-      
-      {/* 1. HEADER (Always Visible) */}
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800 dark:text-white">
-            All Trips
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Manage your client bookings and payments.
-          </p>
-        </div>
+    <div className="p-6 md:p-10 xl:px-14 space-y-8 pb-24">
 
-        <div className="flex gap-2">
-          {/* EXPORT DROPDOWN */}
-          <div className="relative" ref={exportMenuRef}>
-            <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              disabled={isExporting}
-              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white px-5 py-3 rounded-xl flex items-center justify-center gap-2 font-semibold shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
-            >
-              {isExporting ? <Loader2 className="animate-spin" size={20}/> : <Download size={20} />}
-              Export
-              <ChevronDown size={16} />
-            </button>
+      <PageHeader
+        title="All Trips"
+        subtitle="Manage your client bookings and payments."
+        actions={
+          <>
+            <Dropdown
+              trigger={
+                <Button variant="outline" icon={isExporting ? Loader2 : Download} disabled={isExporting}>
+                  Export <ChevronDown size={16} />
+                </Button>
+              }
+              items={[
+                {
+                  key: "service-tax",
+                  label: "Service Tax Report",
+                  description: "Profit & GST Data",
+                  icon: FileText,
+                  onSelect: handleExportServiceTax,
+                },
+                {
+                  key: "payment",
+                  label: "Payment Report",
+                  description: "Client Payments",
+                  icon: CreditCard,
+                  onSelect: handleExportPayment,
+                },
+              ]}
+            />
+            <Button icon={Plus} onPress={handleNewBooking}>New Trip</Button>
+          </>
+        }
+      />
 
-            {showExportMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                <button
-                  onClick={handleExportServiceTax}
-                  className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"
-                >
-                  <div className="bg-blue-100 dark:bg-blue-900/30 p-1.5 rounded text-blue-600 dark:text-blue-400">
-                    <FileText size={16} />
-                  </div>
-                  <div>
-                    <p className="font-semibold">Service Tax Report</p>
-                    <p className="text-xs text-slate-400">Profit & GST Data</p>
-                  </div>
-                </button>
-                <div className="h-px bg-slate-100 dark:bg-slate-700 mx-4"></div>
-                <button
-                  onClick={handleExportPayment}
-                  className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"
-                >
-                  <div className="bg-emerald-100 dark:bg-emerald-900/30 p-1.5 rounded text-emerald-600 dark:text-emerald-400">
-                    <CreditCard size={16} />
-                  </div>
-                  <div>
-                    <p className="font-semibold">Payment Report</p>
-                    <p className="text-xs text-slate-400">Client Payments</p>
-                  </div>
-                </button>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl flex items-center justify-center gap-2 font-semibold shadow-lg shadow-blue-600/20 transition-all"
-          >
-            <Plus size={20} /> New Trip
-          </button>
-        </div>
-      </div>
-
-      {/* 2. CONTROLS BAR (Filters + Search) */}
+      {/* CONTROLS BAR (Filters + Search) */}
       <div className="flex flex-col xl:flex-row gap-4 justify-between xl:items-center">
-        
-        {/* MATCHING DASHBOARD FILTER STYLE */}
-        <div className="bg-slate-100 dark:bg-slate-800/50 p-2 rounded-xl flex flex-wrap gap-2 items-center border border-slate-200 dark:border-slate-700 w-fit">
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium px-2">
-                <Filter size={16} /> <span className="text-sm">Filter:</span>
-            </div>
-            
-            <select
-                className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-            >
-                <option value="all">All Time</option>
-                <option value="monthly">Monthly</option>
-                <option value="quarterly">Quarterly</option>
-                <option value="yearly">Financial Year</option>
-            </select>
+        <FilterBar label="Filter:">
+          <Select
+            value={filterType}
+            onChange={setFilterType}
+            options={[
+              { value: "all", label: "All Time" },
+              { value: "monthly", label: "Monthly" },
+              { value: "quarterly", label: "Quarterly" },
+              { value: "yearly", label: "Financial Year" },
+            ]}
+          />
 
-            {filterType !== "all" && (
+          {filterType !== "all" && (
             <>
-                <select
-                    className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(Number(e.target.value))}
-                >
-                    {yearOptions.map((y) => (
-                        <option key={y} value={y}>
-                            {filterType === "monthly" ? y : `FY ${y}-${y + 1}`}
-                        </option>
-                    ))}
-                </select>
+              <Select
+                value={String(selectedYear)}
+                onChange={(v) => setSelectedYear(Number(v))}
+                options={yearOptions.map((y) => ({
+                  value: String(y),
+                  label: filterType === "monthly" ? String(y) : `FY ${y}-${y + 1}`,
+                }))}
+              />
 
-                {filterType === "quarterly" && (
-                    <select
-                        className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                        value={selectedQuarter}
-                        onChange={(e) => setSelectedQuarter(e.target.value)}
-                    >
-                        <option value="Q1">Q1 (Apr–Jun)</option>
-                        <option value="Q2">Q2 (Jul–Sep)</option>
-                        <option value="Q3">Q3 (Oct–Dec)</option>
-                        <option value="Q4">Q4 (Jan–Mar)</option>
-                    </select>
-                )}
+              {filterType === "quarterly" && (
+                <Select
+                  value={selectedQuarter}
+                  onChange={setSelectedQuarter}
+                  options={[
+                    { value: "Q1", label: "Q1 (Apr–Jun)" },
+                    { value: "Q2", label: "Q2 (Jul–Sep)" },
+                    { value: "Q3", label: "Q3 (Oct–Dec)" },
+                    { value: "Q4", label: "Q4 (Jan–Mar)" },
+                  ]}
+                />
+              )}
 
-                {filterType === "monthly" && (
-                    <select
-                        className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                        value={selectedMonth}
-                        onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                    >
-                        {Array.from({ length: 12 }, (_, i) => (
-                            <option key={i} value={i}>
-                                {new Date(0, i).toLocaleString("default", { month: "long" })}
-                            </option>
-                        ))}
-                    </select>
-                )}
+              {filterType === "monthly" && (
+                <Select
+                  value={String(selectedMonth)}
+                  onChange={(v) => setSelectedMonth(Number(v))}
+                  options={Array.from({ length: 12 }, (_, i) => ({
+                    value: String(i),
+                    label: new Date(0, i).toLocaleString("default", { month: "long" }),
+                  }))}
+                />
+              )}
             </>
-            )}
-        </div>
+          )}
+        </FilterBar>
 
-        {/* SEARCH BAR */}
-        <div className="relative w-full xl:w-72">
-           <Search className="absolute left-3 top-3 text-slate-400" size={18} />
-           <input 
-             type="text" 
-             placeholder="Search trips or clients..."
-             className="w-full pl-10 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-             value={searchQuery}
-             onChange={(e) => setSearchQuery(e.target.value)}
-           />
-        </div>
+        <SearchField
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search trips or clients..."
+          className="w-full xl:w-72"
+        />
       </div>
 
-      {/* 3. BOOKINGS LIST (With Conditional Loading) */}
-      {/* ✅ This prevents the header from disappearing during load */}
+      {/* BOOKING CARD FEED */}
       {loading ? (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 shadow-sm min-h-[400px] flex items-center justify-center">
             <BookingsLoader />
         </div>
+      ) : filteredBookings.length === 0 ? (
+        <EmptyState
+          icon={Briefcase}
+          title="No trips found"
+          description="Try adjusting filters or create a new one."
+        />
       ) : (
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm animate-in fade-in duration-300">
-          {filteredBookings.length === 0 ? (
-            <div className="p-12 text-center flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
-              <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                  <Briefcase size={32} className="opacity-50" />
-              </div>
-              <p className="text-lg font-medium">No trips found</p>
-              <p className="text-sm">Try adjusting filters or create a new one.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-700">
-              {filteredBookings.map((b) => (
-                <div
-                  key={b._id}
-                  onClick={() => navigate(`/bookings/${b._id}`)}
-                  className="flex items-center justify-between p-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors group"
-                >
-                  <div className="flex items-center gap-4">
-                    {/* 🎨 DYNAMIC ICON */}
-                    <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
-                      {getTripIcon(b.name)}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-slate-800 dark:text-white text-lg">
-                        {b.name}
-                      </h3>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                         <span className="font-medium text-slate-600 dark:text-slate-300">{b.clientName}</span>
-                         <span>•</span>
-                         <span>{formatDate(b.date)}</span>
-                      </p>
-                    </div>
-                  </div>
+        <>
+          <div className="flex flex-col gap-4">
+            {pagedBookings.map((booking) => (
+              <BookingCard
+                key={booking._id}
+                booking={booking}
+                onOpenDetails={(b) => navigate(`/app/bookings/${b._id}`)}
+                onEdit={handleEditBooking}
+                onViewInvoice={openInvoice}
+                onReceivePayment={openReceivePayment}
+                onDelete={handleDeleteBooking}
+              />
+            ))}
+          </div>
 
-                  <div className="text-right">
-                    <p className="font-bold text-emerald-600 dark:text-emerald-400 text-lg">
-                      {formatMoney(b.totalClientPayment)}
-                    </p>
-                    <p className="text-xs text-slate-400">Total Value</p>
-                  </div>
-                </div>
-              ))}
+          {pageCount > 1 && (
+            <div className="flex items-center justify-between pt-1 text-sm text-[var(--color-text-muted)]">
+              <span>Page {page + 1} of {pageCount}</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" icon={ChevronLeft} disabled={page === 0} onPress={() => setPage((p) => Math.max(0, p - 1))} />
+                <Button variant="outline" size="sm" icon={ChevronRight} disabled={page >= pageCount - 1} onPress={() => setPage((p) => Math.min(pageCount - 1, p + 1))} />
+              </div>
             </div>
           )}
-        </div>
+        </>
       )}
 
-      {/* 4. NEW BOOKING MODAL */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl w-full max-w-md relative shadow-2xl animate-in fade-in zoom-in duration-200">
-            <button
-              onClick={() => setShowForm(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
-            >
-              <X />
-            </button>
-
-            <h2 className="text-2xl font-bold mb-6 dark:text-white flex items-center gap-2">
-               <Briefcase className="text-blue-600" /> New Trip
-            </h2>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Trip Name</label>
-                <input
-                    className="w-full p-3 border border-slate-200 dark:border-slate-600 rounded-xl dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="e.g. Dubai Family Trip"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Client Name</label>
-                <input
-                    className="w-full p-3 border border-slate-200 dark:border-slate-600 rounded-xl dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="e.g. Rahul Sharma"
-                    value={formData.clientName}
-                    onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                    required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Total Deal Value</label>
-                <input
-                    type="number"
-                    className="w-full p-3 border border-slate-200 dark:border-slate-600 rounded-xl dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="₹ 0.00"
-                    value={formData.totalClientPayment}
-                    onChange={(e) => setFormData({ ...formData, totalClientPayment: e.target.value })}
-                    required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Booking Date</label>
-                <input
-                    type="date"
-                    className="w-full p-3 border border-slate-200 dark:border-slate-600 rounded-xl dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    required
-                />
-              </div>
-
-              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold text-lg shadow-lg shadow-blue-600/20 mt-2 transition-transform active:scale-95">
-                Create Booking
-              </button>
-            </form>
+      {/* NEW / EDIT BOOKING DIALOG */}
+      <Dialog
+        open={showForm}
+        onOpenChange={(open) => {
+          setShowForm(open);
+          if (!open) setEditingBooking(null);
+        }}
+        title={editingBooking ? "Edit Trip" : "New Trip"}
+        footer={
+          <Button fullWidth loading={isSubmitting} onPress={handleSubmit(onSubmit)}>
+            {editingBooking ? "Save Changes" : "Create Booking"}
+          </Button>
+        }
+      >
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <TextInput label="Trip Name" placeholder="e.g. Dubai Family Trip" error={errors.name?.message} {...register("name")} />
+          <TextInput label="Client Name" placeholder="e.g. Rahul Sharma" error={errors.clientName?.message} {...register("clientName")} />
+          <div className="grid grid-cols-2 gap-3">
+            <TextInput label="Total Deal Value" type="number" placeholder="0.00" error={errors.totalClientPayment?.message} {...register("totalClientPayment")} />
+            <TextInput label="Booking Date" type="date" error={errors.date?.message} {...register("date")} />
           </div>
-        </div>
-      )}
+          <div className="grid grid-cols-2 gap-3">
+            <TextInput label="Invoice Number" placeholder="Optional" {...register("invoiceNumber")} />
+            <Controller
+              control={control}
+              name="paymentStatus"
+              render={({ field }) => (
+                <Select
+                  label="Payment Status"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={[
+                    { value: "pending", label: "Pending" },
+                    { value: "partial", label: "Partial" },
+                    { value: "paid", label: "Paid" },
+                  ]}
+                />
+              )}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <TextInput label="Payment Mode" placeholder="e.g. ICICI CASH" {...register("paymentMode")} />
+            <TextInput label="Bank Name" placeholder="e.g. ICICI" {...register("bankName")} />
+          </div>
+          <TextInput label="Payment Reference" placeholder="Cheque no. / UTR (optional)" {...register("paymentReference")} />
+          <TextInput label="Remarks" placeholder="Optional notes" {...register("remarks")} />
+        </form>
+      </Dialog>
+
+      {/* RECEIVE PAYMENT DIALOG */}
+      <Dialog
+        open={!!receivingBooking}
+        onOpenChange={(open) => { if (!open) setReceivingBooking(null); }}
+        title="Receive Payment"
+        description={receivingBooking ? `Log an amount received for "${receivingBooking.name}".` : undefined}
+        footer={
+          <Button fullWidth onPress={submitReceivePayment} disabled={!receiveAmount || Number(receiveAmount) <= 0}>
+            Record Payment
+          </Button>
+        }
+      >
+        {receivingBooking && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-xl bg-[var(--color-surface-muted)] px-4 py-3 text-sm">
+              <span className="text-[var(--color-text-muted)]">Pending amount</span>
+              <span className="font-bold text-slate-800 dark:text-white">
+                {formatMoney(receivingBooking.totalClientPayment - (receivingBooking.clientPaidAmount || 0))}
+              </span>
+            </div>
+            <TextInput
+              label="Amount Received"
+              type="number"
+              placeholder="0.00"
+              value={receiveAmount}
+              onChange={(e) => setReceiveAmount(e.target.value)}
+            />
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }

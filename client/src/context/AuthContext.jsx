@@ -1,4 +1,6 @@
 import { createContext, useState, useEffect, useContext } from "react";
+import { googleLogout } from "@react-oauth/google";
+import { API_URL } from "../lib/api";
 
 const AuthContext = createContext();
 
@@ -22,15 +24,15 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // ==========================================
-  // LOGIN (TOKEN BASED)
+  // LOGIN (GOOGLE) — `credential` is the ID token from @react-oauth/google.
   // ==========================================
-  const login = async (email, password) => {
+  const loginWithGoogle = async (credential) => {
     try {
-        const res = await fetch("https://velocity-tours.vercel.app/api/auth/login", {
+      const res = await fetch(`${API_URL}/api/auth/google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-        credentials: "include" 
+        body: JSON.stringify({ credential }),
+        credentials: "include"
       });
 
       const data = await res.json();
@@ -39,7 +41,6 @@ export const AuthProvider = ({ children }) => {
         return { success: false, message: data.message };
       }
 
-      // ✅ SAVE TOKEN + USER
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
@@ -48,18 +49,21 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
-      console.error("Login error:", err);
+      console.error("Google login error:", err);
       return { success: false, message: "Server connection failed" };
     }
   };
 
   // ==========================================
   // LOGOUT (CLIENT SIDE)
+  // Clears the refresh token cookie server-side, revokes the Google session
+  // so it doesn't silently re-auth on the next visit, and wipes every trace
+  // of local session data — this is a financial app, so nothing (auth
+  // tokens, cached AI chat history, etc.) should survive on a shared machine.
   // ==========================================
   const logout = async () => {
     try {
-      // HARDCODED BACKEND URL: Ensures we hit the real server to delete the cookie
-      await fetch("https://velocity-tours.vercel.app/api/auth/logout", {
+      await fetch(`${API_URL}/api/auth/logout`, {
         method: "POST",
         credentials: "include"
       });
@@ -67,15 +71,22 @@ export const AuthProvider = ({ children }) => {
       console.error("Logout error:", err);
     }
 
-    // Always clear the local storage immediately
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    try {
+      googleLogout();
+    } catch (err) {
+      console.error("Google logout error:", err);
+    }
+
+    // Invalidate auth context first, then wipe storage — order matters so
+    // nothing re-reads a token mid-clear.
     setToken(null);
     setUser(null);
+    localStorage.clear();
+    sessionStorage.clear();
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, loginWithGoogle, logout, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

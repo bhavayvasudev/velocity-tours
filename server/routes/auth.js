@@ -2,9 +2,11 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const bcrypt = require("bcryptjs");
 const rateLimit = require('express-rate-limit');
+const { OAuth2Client } = require('google-auth-library');
 const { verifyToken, adminOnly } = require("../middleware/authMiddleware");
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // ==========================================
 // 1. DEFINE LIMITER
@@ -27,60 +29,100 @@ const generateRefreshToken = (id) => {
 };
 
 // ==========================================
-// 3. LOGIN ROUTE
+// 3. GOOGLE LOGIN (only login method)
+//
+// Security note: this app is an internal financial tool with admin-gated
+// account creation (see /register below). Google sign-in intentionally does
+// NOT auto-provision new accounts — it only links/authenticates an email
+// that an admin has already created via Team Management, so "Continue with
+// Google" can't be used as an open self-serve signup funnel.
+//
+// Migration note: pre-existing accounts (created back when this app used
+// hardcoded password auth) have no googleId yet. The first time a matching
+// email signs in with Google, we link that Google account to the existing
+// user document instead of creating a duplicate — same _id, so every
+// booking/vendor/expense/etc relation tied to that user stays intact.
+//
+// Admin bootstrap: this app is provisioned with exactly one admin account.
+// If a Google sign-in doesn't match any user by googleId or email, and
+// there is exactly one admin account that has never been linked to a
+// Google identity, that Google account is linked to it and becomes the
+// owner. This only fires once — after linking, the admin has a googleId
+// and this path no longer matches. Optionally set ADMIN_BOOTSTRAP_EMAIL to
+// restrict which email is allowed to claim it.
 // ==========================================
-router.post('/login', loginLimiter, async (req, res) => {
-  const { email, password } = req.body;
+router.post('/google', loginLimiter, async (req, res) => {
+  const { credential } = req.body;
+  if (!credential) return res.status(400).json({ message: "Missing Google credential." });
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: "User not found." });
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { sub: googleId, email } = payload;
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ message: "Wrong password." });
+    let user = await User.findOne({ $or: [{ googleId }, { email }] });
+
+    if (!user) {
+      const bootstrapEmail = process.env.ADMIN_BOOTSTRAP_EMAIL;
+      if (!bootstrapEmail || bootstrapEmail === email) {
+        const unlinkedAdmins = await User.find({ role: 'admin', googleId: { $exists: false } });
+        if (unlinkedAdmins.length === 1) {
+          user = unlinkedAdmins[0];
+        }
+      }
+    }
+
+    if (!user) {
+      return res.status(403).json({ message: "No account found for this email. Contact your admin to get access." });
+    }
+
+    if (!user.googleId) {
+      user.googleId = googleId;
+      await user.save();
+    }
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    // FIX: Sending the refreshToken as the persistent cookie
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: true,      // Must be true for Vercel/HTTPS
-      sameSite: 'none',  // Must be 'none' for Cross-Domain
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      secure: true,
+      sameSite: 'none',
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
-    // ✅ FIX 2: Changed 'accessToken' to 'token' to match frontend
-    res.json({ 
-      token: accessToken, 
-      user: { id: user._id, name: user.name, email: user.email, role: user.role } 
+    res.json({
+      token: accessToken,
+      user: { id: user._id, name: user.name, email: user.email, role: user.role }
     });
   } catch (err) {
-    console.error("Login Error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Google login error:", err);
+    res.status(401).json({ message: "Google sign-in failed. Please try again." });
   }
 });
 
 // ==========================================
-// 4. REGISTER (Create Staff - Admin Only)
+// 4. REGISTER (Authorize Staff - Admin Only)
+// Creates a placeholder account an admin pre-authorizes by email; the
+// person then signs in themselves via "Continue with Google", which links
+// their Google identity to this record on first login.
 // ==========================================
 router.post("/register", verifyToken, adminOnly, async (req, res) => {
   try {
     const existingUser = await User.findOne({ email: req.body.email });
     if (existingUser) return res.status(400).json({ message: "Email already exists" });
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(req.body.password, salt);
-
     const newUser = new User({
       name: req.body.name,
       email: req.body.email,
-      password: hashedPassword,
       role: req.body.role || "staff"
     });
 
     await newUser.save();
-    res.status(201).json({ message: "Account created successfully!" });
+    res.status(201).json({ message: "Account authorized. They can now sign in with Google." });
   } catch (err) {
     res.status(500).json({ message: "Error creating user" });
   }
