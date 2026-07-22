@@ -7,33 +7,23 @@ import {
   Settings as SettingsIcon,
   LogOut,
   ChevronDown,
-  Plus,
-  ArrowDownLeft,
-  Receipt,
-  Wallet,
-  FileText,
-  FileSpreadsheet,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import PillNav from "./ui/PillNav";
-import SpeedDial from "./ui/SpeedDial";
 import Dropdown from "./ui/Dropdown";
 import Button from "./ui/Button";
-import CommandPalette from "./ui/CommandPalette";
 import AIAssistant from "./ui/AIAssistant";
 
-// Only the primary destinations live in the floating nav. Payments, Vendors,
-// Expenses and GST are still real routes (see App.jsx) — reachable from the
-// Dashboard's health rows, Reports' export tiles, and the New Entry menu
-// below — they just don't need a permanent top-level slot. "New Booking" is
-// the single most common action, so it takes GST's slot as a highlighted
-// CTA pill living inside the same nav capsule, not a separate button beside it.
+// Only four destinations, no CTA pill. Booking creation lives on the
+// Bookings page itself — one entry point, not a nav shortcut plus a page
+// form. Payments, Vendors, Expenses and GST are still real routes (see
+// App.jsx), reachable from the Dashboard's health rows and Reports' export
+// tiles instead of a permanent top-level slot.
 const navItems = [
   { name: "Dashboard", icon: LayoutDashboard, path: "/app", end: true },
   { name: "Bookings", icon: Calendar, path: "/app/bookings" },
   { name: "Reports", icon: BarChart3, path: "/app/reports" },
   { name: "Settings", icon: SettingsIcon, path: "/app/settings" },
-  { name: "New Booking", icon: Plus, path: "/app/bookings", state: { openCreate: true }, type: "cta" },
 ];
 
 function UserMenu({ user, onSettings, onLogout }) {
@@ -78,21 +68,6 @@ export default function AdminLayout() {
     navigate("/", { replace: true });
   };
 
-  // Every "New Entry" action a travel-agency owner needs day to day,
-  // reachable from any screen without a nav trip first. "New Booking" lives
-  // in the nav pill itself (it's the single most common action), so it's
-  // deliberately not repeated here. Each one hands the destination page a
-  // location.state flag so it can auto-open its create dialog instead of
-  // just landing on the list.
-  const speedDialActions = [
-    { key: "payment", icon: ArrowDownLeft, label: "Receive Payment", onSelect: () => navigate("/app/payments", { state: { openRecord: true } }) },
-    { key: "bill", icon: Receipt, label: "Vendor Bill", onSelect: () => navigate("/app/expenses", { state: { openCreate: true } }) },
-    { key: "cash", icon: Wallet, label: "Cash Entry", onSelect: () => navigate("/app/cash", { state: { openCreate: true } }) },
-    { key: "expense", icon: Receipt, label: "Expense", onSelect: () => navigate("/app/expenses", { state: { openCreate: true } }) },
-    { key: "invoice", icon: FileText, label: "Generate Invoice", onSelect: () => navigate("/app/payments", { state: { openInvoicePicker: true } }) },
-    { key: "export", icon: FileSpreadsheet, label: "Export Excel", onSelect: () => navigate("/app/reports") },
-  ];
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-[var(--color-app-bg-from)] to-[var(--color-app-bg-to)] transition-colors dark:from-[var(--color-surface-muted)] dark:to-[var(--color-surface-muted)]">
       <header className="sticky top-0 z-40 px-4 pt-4 md:px-8 md:pt-6">
@@ -111,7 +86,6 @@ export default function AdminLayout() {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            <CommandPalette />
             <UserMenu user={user} onSettings={() => navigate("/app/settings")} onLogout={handleLogout} />
           </div>
         </div>
@@ -129,7 +103,6 @@ export default function AdminLayout() {
         </PageTransition>
       </main>
 
-      <SpeedDial actions={speedDialActions} />
       <AIAssistant />
     </div>
   );
