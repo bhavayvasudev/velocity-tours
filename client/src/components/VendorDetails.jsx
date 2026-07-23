@@ -76,13 +76,18 @@ export default function VendorDetails() {
         { key: "booking", header: "Booking", value: (b) => b.booking?.name || "—" },
         { key: "billNumber", header: "Bill Number", value: (b) => b.billNumber || "" },
         { key: "amount", header: "Invoice Amount", align: "right", currency: true },
+        { key: "paymentMode", header: "Payment Mode", value: (b) => b.paymentMode || "" },
+        { key: "bankName", header: "Bank Used", value: (b) => b.bankName || "" },
+        { key: "inputGst", header: "Input GST", align: "right", currency: true, value: (b) => b.inputGst || 0 },
+        { key: "inputCgst", header: "Input CGST", align: "right", currency: true, value: (b) => b.inputCgst || 0 },
+        { key: "inputSgst", header: "Input SGST", align: "right", currency: true, value: (b) => b.inputSgst || 0 },
         { key: "paidAmount", header: "Payment Made", align: "right", currency: true },
         { key: "pending", header: "Pending", align: "right", currency: true, pendingHighlight: true, value: (b) => b.amount - b.paidAmount },
         { key: "runningBalance", header: "Running Balance", align: "right", currency: true },
-        { key: "notes", header: "Notes", value: (b) => b.notes || "" },
+        { key: "notes", header: "Remarks", value: (b) => b.notes || "" },
       ],
       rows: ascending,
-      totalsColumns: ["amount", "paidAmount"],
+      totalsColumns: ["amount", "inputGst", "inputCgst", "inputSgst", "paidAmount"],
     });
   };
 

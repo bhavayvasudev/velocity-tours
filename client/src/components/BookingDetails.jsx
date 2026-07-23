@@ -20,8 +20,10 @@ import {
 
 import BookingsLoader from './BookingsLoader';
 import { API_URL as BASE_API_URL, authHeaders } from "../lib/api";
+import { PAYMENT_MODE_OPTIONS } from "../lib/paymentModes";
 import Button from "./ui/Button";
 import Dialog from "./ui/Dialog";
+import Select from "./ui/Select";
 import { TextInput } from "./ui/Field";
 import { StatusBadge } from "./ui/Badge";
 
@@ -342,10 +344,18 @@ export default function BookingDetails() {
                   value={editBookingData.invoiceNumber || ""}
                   onChange={(e) => setEditBookingData({ ...editBookingData, invoiceNumber: e.target.value })}
                 />
-                <TextInput
-                  label="Payment Mode"
+                <Select
+                  label="Payment Mode / Received In"
                   value={editBookingData.paymentMode || ""}
-                  onChange={(e) => setEditBookingData({ ...editBookingData, paymentMode: e.target.value })}
+                  onChange={(v) => setEditBookingData({ ...editBookingData, paymentMode: v })}
+                  options={PAYMENT_MODE_OPTIONS}
+                  placeholder="Select mode"
+                />
+                <TextInput
+                  label="Payment Date"
+                  type="date"
+                  value={editBookingData.paymentDate ? new Date(editBookingData.paymentDate).toISOString().split("T")[0] : ""}
+                  onChange={(e) => setEditBookingData({ ...editBookingData, paymentDate: e.target.value })}
                 />
                 <TextInput
                   label="Bank Name"
@@ -369,6 +379,10 @@ export default function BookingDetails() {
                 <div>
                   <p className="text-xs text-slate-400 uppercase font-bold">Mode</p>
                   <p className="text-slate-700 dark:text-slate-200 mt-1">{booking.paymentMode || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase font-bold">Payment Date</p>
+                  <p className="text-slate-700 dark:text-slate-200 mt-1">{booking.paymentDate ? new Date(booking.paymentDate).toLocaleDateString("en-IN") : "—"}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-400 uppercase font-bold">Bank</p>

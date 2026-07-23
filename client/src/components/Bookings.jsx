@@ -28,6 +28,7 @@ import { API_URL as BASE_API_URL, authHeaders } from "../lib/api";
 import { openInvoice } from "../lib/invoice";
 import { deriveStatus } from "../lib/status";
 import { exportLedger, exportServiceTaxReport } from "../lib/excelExport";
+import { PAYMENT_MODE_OPTIONS } from "../lib/paymentModes";
 import PageHeader from "./ui/PageHeader";
 import Button from "./ui/Button";
 import Select from "./ui/Select";
@@ -78,10 +79,12 @@ const defaultFormValues = () => ({
   name: "",
   clientName: "",
   totalClientPayment: "",
+  clientPaidAmount: "",
   date: new Date().toISOString().split("T")[0],
   invoiceNumber: "",
   paymentStatus: "pending",
   paymentMode: "",
+  paymentDate: "",
   bankName: "",
   paymentReference: "",
   remarks: "",
@@ -91,10 +94,12 @@ const bookingToFormValues = (booking) => ({
   name: booking.name || "",
   clientName: booking.clientName || "",
   totalClientPayment: booking.totalClientPayment ?? "",
+  clientPaidAmount: booking.clientPaidAmount ?? "",
   date: booking.date ? new Date(booking.date).toISOString().split("T")[0] : "",
   invoiceNumber: booking.invoiceNumber || "",
   paymentStatus: booking.paymentStatus || "pending",
   paymentMode: booking.paymentMode || "",
+  paymentDate: booking.paymentDate ? new Date(booking.paymentDate).toISOString().split("T")[0] : "",
   bankName: booking.bankName || "",
   paymentReference: booking.paymentReference || "",
   remarks: booking.remarks || "",
@@ -183,12 +188,14 @@ function BookingCard({ booking, onOpenDetails, onEdit, onViewInvoice, onReceiveP
 
 const bookingSchema = z.object({
   name: z.string().min(1, "Trip name is required"),
-  clientName: z.string().min(1, "Client name is required"),
+  clientName: z.string().min(1, "Customer name is required"),
   totalClientPayment: z.coerce.number().positive("Enter a valid amount"),
+  clientPaidAmount: z.coerce.number().min(0, "Cannot be negative").optional(),
   date: z.string().min(1, "Date is required"),
   invoiceNumber: z.string().optional(),
   paymentStatus: z.enum(["paid", "partial", "pending"]).default("pending"),
   paymentMode: z.string().optional(),
+  paymentDate: z.string().optional(),
   bankName: z.string().optional(),
   paymentReference: z.string().optional(),
   remarks: z.string().optional(),
@@ -221,11 +228,16 @@ export default function Bookings() {
     handleSubmit,
     control,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(bookingSchema),
     defaultValues: defaultFormValues(),
   });
+
+  const watchedTotal = watch("totalClientPayment");
+  const watchedPaid = watch("clientPaidAmount");
+  const pendingAmount = Math.max((Number(watchedTotal) || 0) - (Number(watchedPaid) || 0), 0);
 
   /* ================= HELPERS ================= */
   // Tax Calculation (Inclusive 18%)
@@ -420,7 +432,11 @@ export default function Bookings() {
   /* ================= CREATE BOOKING ================= */
   const onSubmit = async (values) => {
     try {
-      const payload = { ...values, totalClientPayment: Number(values.totalClientPayment) };
+      const payload = {
+        ...values,
+        totalClientPayment: Number(values.totalClientPayment),
+        clientPaidAmount: Number(values.clientPaidAmount || 0),
+      };
 
       if (editingBooking) {
         const res = await fetch(`${API_URL}/bookings/${editingBooking._id}`, {
@@ -435,7 +451,7 @@ export default function Bookings() {
         const res = await fetch(`${API_URL}/bookings`, {
           method: "POST",
           headers: authHeaders({ "Content-Type": "application/json" }),
-          body: JSON.stringify({ ...payload, clientPaidAmount: 0 }),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) return;
         const newBooking = await res.json();
@@ -658,36 +674,47 @@ export default function Bookings() {
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <TextInput label="Trip Name" placeholder="e.g. Dubai Family Trip" error={errors.name?.message} {...register("name")} />
-          <TextInput label="Client Name" placeholder="e.g. Rahul Sharma" error={errors.clientName?.message} {...register("clientName")} />
+          <TextInput label="Customer Name" placeholder="e.g. Rahul Sharma" error={errors.clientName?.message} {...register("clientName")} />
+          <TextInput label="Invoice Number" placeholder="Optional" {...register("invoiceNumber")} />
           <div className="grid grid-cols-2 gap-3">
-            <TextInput label="Total Deal Value" type="number" placeholder="0.00" error={errors.totalClientPayment?.message} {...register("totalClientPayment")} />
+            <TextInput label="Invoice Amount" type="number" placeholder="0.00" error={errors.totalClientPayment?.message} {...register("totalClientPayment")} />
             <TextInput label="Booking Date" type="date" error={errors.date?.message} {...register("date")} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <TextInput label="Invoice Number" placeholder="Optional" {...register("invoiceNumber")} />
-            <Controller
-              control={control}
-              name="paymentStatus"
-              render={({ field }) => (
-                <Select
-                  label="Payment Status"
-                  value={field.value}
-                  onChange={field.onChange}
-                  options={[
-                    { value: "pending", label: "Pending" },
-                    { value: "partial", label: "Partial" },
-                    { value: "paid", label: "Paid" },
-                  ]}
-                />
-              )}
-            />
+            <TextInput label="Amount Received" type="number" placeholder="0.00" error={errors.clientPaidAmount?.message} {...register("clientPaidAmount")} />
+            <TextInput label="Pending Amount" value={formatMoney(pendingAmount)} disabled readOnly />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <TextInput label="Payment Mode" placeholder="e.g. ICICI CASH" {...register("paymentMode")} />
-            <TextInput label="Bank Name" placeholder="e.g. ICICI" {...register("bankName")} />
+            <Controller
+              control={control}
+              name="paymentMode"
+              render={({ field }) => (
+                <Select label="Payment Mode / Received In" value={field.value} onChange={field.onChange} options={PAYMENT_MODE_OPTIONS} placeholder="Select mode" />
+              )}
+            />
+            <TextInput label="Payment Date" type="date" {...register("paymentDate")} />
           </div>
-          <TextInput label="Payment Reference" placeholder="Cheque no. / UTR (optional)" {...register("paymentReference")} />
-          <TextInput label="Remarks" placeholder="Optional notes" {...register("remarks")} />
+          <Controller
+            control={control}
+            name="paymentStatus"
+            render={({ field }) => (
+              <Select
+                label="Payment Status"
+                value={field.value}
+                onChange={field.onChange}
+                options={[
+                  { value: "pending", label: "Pending" },
+                  { value: "partial", label: "Partial" },
+                  { value: "paid", label: "Paid" },
+                ]}
+              />
+            )}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <TextInput label="Bank Name" placeholder="Optional" {...register("bankName")} />
+            <TextInput label="Payment Reference" placeholder="Cheque no. / UTR (optional)" {...register("paymentReference")} />
+          </div>
+          <TextInput label="Remarks / Notes" placeholder="Optional notes" {...register("remarks")} />
         </form>
       </Dialog>
 

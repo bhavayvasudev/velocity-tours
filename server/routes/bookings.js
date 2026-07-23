@@ -29,6 +29,7 @@ router.post("/", verifyToken, async (req, res) => {
     invoiceNumber: req.body.invoiceNumber || "",
     paymentStatus: req.body.paymentStatus || "pending",
     paymentMode: req.body.paymentMode || "",
+    paymentDate: req.body.paymentDate || undefined,
     bankName: req.body.bankName || "",
     paymentReference: req.body.paymentReference || "",
     remarks: req.body.remarks || ""

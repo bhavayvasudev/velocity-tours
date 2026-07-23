@@ -426,6 +426,26 @@ export default function AIAssistant() {
     }
   };
 
+  // Bridge for pages outside this component (Reports' "Ask the AI Assistant"
+  // quick prompts) to open the drawer and send a message with real figures
+  // already baked in — a plain window event instead of lifting this whole
+  // drawer's state up into AdminLayout just for one cross-page call.
+  // handleSend is captured via a ref (updated every render) so the listener,
+  // registered once, always calls the current closure instead of a stale one.
+  const handleSendRef = useRef(handleSend);
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  });
+  useEffect(() => {
+    const onAskAi = (e) => {
+      setOpen(true);
+      setView("chat");
+      handleSendRef.current(e.detail.prompt);
+    };
+    window.addEventListener("velocity:ask-ai", onAskAi);
+    return () => window.removeEventListener("velocity:ask-ai", onAskAi);
+  }, []);
+
   const grouped = groupByRecency(conversations);
 
   return (

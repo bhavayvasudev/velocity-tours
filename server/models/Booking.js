@@ -35,7 +35,8 @@ const BookingSchema = new mongoose.Schema({
   // documents keep working unmodified. ---
   invoiceNumber: { type: String, default: "" },
   paymentStatus: { type: String, enum: ["paid", "partial", "pending"], default: "pending" },
-  paymentMode: { type: String, default: "" }, // e.g. ICICI, PNB, Cash, Cheque, TBO CC
+  paymentMode: { type: String, default: "" }, // e.g. ICICI, PNB, Cash, ICICI Cash, PNB Cash, TBO CC, Cheque, Other
+  paymentDate: { type: Date },
   bankName: { type: String, default: "" },
   paymentReference: { type: String, default: "" },
   remarks: { type: String, default: "" }

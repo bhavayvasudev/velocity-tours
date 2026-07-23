@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Percent, Download, TrendingUp, TrendingDown, Scale, Building2, Info } from "lucide-react";
+import { Download, TrendingUp, TrendingDown, Scale, Info } from "lucide-react";
 import { API_URL as BASE_API_URL, authHeaders } from "../lib/api";
 import { taxComponents } from "../lib/gst";
 import { exportWorkbook } from "../lib/excelExport";
@@ -7,7 +7,6 @@ import PageHeader from "./ui/PageHeader";
 import Button from "./ui/Button";
 import Select from "./ui/Select";
 import StatWidget from "./ui/StatWidget";
-import DataTable from "./ui/DataTable";
 import FilterBar from "./ui/FilterBar";
 import BookingsLoader from "./BookingsLoader";
 
@@ -16,6 +15,11 @@ const API_URL = `${BASE_API_URL}/api`;
 const formatMoney = (amount) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(amount || 0);
 
+// The GST page is a summary/dashboard only — Output GST is still the
+// 18%-inclusive estimate derived from client invoice amounts (unchanged
+// from the original implementation). Input GST is no longer estimated the
+// same way: it's whatever was recorded on each vendor bill's own Input
+// GST/CGST/SGST fields, summed as-is. No manual entry happens on this page.
 export default function GST() {
   const [bookings, setBookings] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -77,22 +81,15 @@ export default function GST() {
   const outputCgst = invoiceRows.reduce((sum, r) => sum + r.tax.cgst, 0);
   const outputSgst = invoiceRows.reduce((sum, r) => sum + r.tax.sgst, 0);
 
-  // --- INPUT GST — paid out on vendor bills. Same taxComponents() split
-  // reused against Expense.amount (also stored GST-inclusive), just like
-  // the Dashboard's "Est. GST Payable" figure already assumes. ---
+  // --- INPUT GST — recorded directly on each vendor bill, not derived. ---
   const filteredExpenses = useMemo(
     () => expenses.filter((e) => inPeriod(e.billDate || e.date)),
     [expenses, filterType, selectedYear, selectedMonth, selectedQuarter]
   );
 
-  const billRows = useMemo(
-    () => filteredExpenses.map((e) => ({ ...e, tax: taxComponents(e.amount) })),
-    [filteredExpenses]
-  );
-
-  const inputGst = billRows.reduce((sum, r) => sum + r.tax.totalTax, 0);
-  const inputCgst = billRows.reduce((sum, r) => sum + r.tax.cgst, 0);
-  const inputSgst = billRows.reduce((sum, r) => sum + r.tax.sgst, 0);
+  const inputGst = filteredExpenses.reduce((sum, e) => sum + (e.inputGst || 0), 0);
+  const inputCgst = filteredExpenses.reduce((sum, e) => sum + (e.inputCgst || 0), 0);
+  const inputSgst = filteredExpenses.reduce((sum, e) => sum + (e.inputSgst || 0), 0);
 
   // --- NET POSITION ---
   const netGst = outputGst - inputGst;
@@ -128,13 +125,13 @@ export default function GST() {
           { key: "billNumber", header: "Bill No", value: (r) => r.billNumber || "" },
           { key: "vendorName", header: "Vendor" },
           { key: "date", header: "Date", value: (r) => new Date(r.billDate || r.date).toLocaleDateString("en-IN") },
-          { key: "base", header: "Taxable Value", align: "right", currency: true, value: (r) => r.tax.base },
-          { key: "cgst", header: "Input CGST (9%)", align: "right", currency: true, value: (r) => r.tax.cgst },
-          { key: "sgst", header: "Input SGST (9%)", align: "right", currency: true, value: (r) => r.tax.sgst },
-          { key: "total", header: "Total", align: "right", currency: true, value: (r) => r.amount },
+          { key: "amount", header: "Vendor Amount", align: "right", currency: true },
+          { key: "inputGst", header: "Input GST", align: "right", currency: true, value: (r) => r.inputGst || 0 },
+          { key: "inputCgst", header: "Input CGST", align: "right", currency: true, value: (r) => r.inputCgst || 0 },
+          { key: "inputSgst", header: "Input SGST", align: "right", currency: true, value: (r) => r.inputSgst || 0 },
         ],
-        rows: billRows,
-        totalsColumns: ["base", "cgst", "sgst", "total"],
+        rows: filteredExpenses,
+        totalsColumns: ["amount", "inputGst", "inputCgst", "inputSgst"],
       },
       {
         sheetName: "Summary",
@@ -157,24 +154,6 @@ export default function GST() {
     ]);
   };
 
-  const invoiceColumns = useMemo(() => [
-    { accessorKey: "clientName", header: "Client" },
-    { accessorKey: "invoiceNumber", header: "Invoice #", cell: ({ getValue }) => getValue() || "—" },
-    { accessorKey: "tax", header: "Taxable Value", meta: { align: "right" }, cell: ({ getValue }) => formatMoney(getValue().base) },
-    { id: "cgst", header: "CGST", meta: { align: "right" }, cell: ({ row }) => formatMoney(row.original.tax.cgst) },
-    { id: "sgst", header: "SGST", meta: { align: "right" }, cell: ({ row }) => formatMoney(row.original.tax.sgst) },
-    { accessorKey: "totalClientPayment", header: "Total", meta: { align: "right" }, cell: ({ getValue }) => <span className="font-semibold text-slate-800 dark:text-white">{formatMoney(getValue())}</span> },
-  ], []);
-
-  const billColumns = useMemo(() => [
-    { accessorKey: "vendorName", header: "Vendor" },
-    { accessorKey: "billNumber", header: "Bill #", cell: ({ getValue }) => getValue() || "—" },
-    { accessorKey: "tax", header: "Taxable Value", meta: { align: "right" }, cell: ({ getValue }) => formatMoney(getValue().base) },
-    { id: "cgst", header: "CGST", meta: { align: "right" }, cell: ({ row }) => formatMoney(row.original.tax.cgst) },
-    { id: "sgst", header: "SGST", meta: { align: "right" }, cell: ({ row }) => formatMoney(row.original.tax.sgst) },
-    { accessorKey: "amount", header: "Total", meta: { align: "right" }, cell: ({ getValue }) => <span className="font-semibold text-slate-800 dark:text-white">{formatMoney(getValue())}</span> },
-  ], []);
-
   if (loading) return <BookingsLoader message="Calculating GST..." />;
 
   return (
@@ -188,8 +167,8 @@ export default function GST() {
       <div className="flex items-start gap-2.5 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300">
         <Info size={16} className="mt-0.5 shrink-0" />
         <p>
-          These figures are estimated from the 18% GST already assumed inclusive in your invoice and vendor bill amounts (9% CGST + 9% SGST).
-          Confirm with your CA before filing.
+          Output GST is estimated from the 18% GST already assumed inclusive in your invoice amounts (9% CGST + 9% SGST).
+          Input GST is the actual GST recorded on each vendor bill. Confirm with your CA before filing.
         </p>
       </div>
 
@@ -239,59 +218,30 @@ export default function GST() {
           <TrendingUp size={13} /> Output GST — collected on client revenue
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <StatWidget title="Output GST (18%)" value={formatMoney(outputGst)} subtext="Total collected" icon={TrendingUp} tone="blue" />
-          <StatWidget title="Output CGST (9%)" value={formatMoney(outputCgst)} subtext="Half of Output GST" icon={TrendingUp} tone="blue" />
-          <StatWidget title="Output SGST (9%)" value={formatMoney(outputSgst)} subtext="Half of Output GST" icon={TrendingUp} tone="blue" />
+          <StatWidget title="Total Output GST" value={formatMoney(outputGst)} subtext="Total collected" icon={TrendingUp} tone="blue" />
+          <StatWidget title="Output CGST" value={formatMoney(outputCgst)} subtext="Half of Output GST" icon={TrendingUp} tone="blue" />
+          <StatWidget title="Output SGST" value={formatMoney(outputSgst)} subtext="Half of Output GST" icon={TrendingUp} tone="blue" />
         </div>
       </div>
 
       <div>
         <h3 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-400">
-          <TrendingDown size={13} /> Input GST — paid on vendor bills
+          <TrendingDown size={13} /> Input GST — recorded on vendor bills
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <StatWidget title="Input GST (18%)" value={formatMoney(inputGst)} subtext="Total paid to vendors" icon={TrendingDown} tone="orange" />
-          <StatWidget title="Input CGST (9%)" value={formatMoney(inputCgst)} subtext="Half of Input GST" icon={TrendingDown} tone="orange" />
-          <StatWidget title="Input SGST (9%)" value={formatMoney(inputSgst)} subtext="Half of Input GST" icon={TrendingDown} tone="orange" />
+          <StatWidget title="Total Input GST" value={formatMoney(inputGst)} subtext="Total recorded from vendors" icon={TrendingDown} tone="orange" />
+          <StatWidget title="Input CGST" value={formatMoney(inputCgst)} subtext="As recorded on vendor bills" icon={TrendingDown} tone="orange" />
+          <StatWidget title="Input SGST" value={formatMoney(inputSgst)} subtext="As recorded on vendor bills" icon={TrendingDown} tone="orange" />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <StatWidget
-          title="Net GST (Output − Input)"
-          value={`${netGst < 0 ? "-" : ""}${formatMoney(Math.abs(netGst))}`}
-          subtext={netGst < 0 ? "Input tax credit exceeds output" : "Output GST minus Input GST"}
-          icon={Scale}
-          tone={netGst < 0 ? "emerald" : "slate"}
-        />
-        <StatWidget
-          title="GST Payable"
+          title="Net GST Payable"
           value={formatMoney(gstPayable)}
-          subtext={gstCredit > 0 ? `₹${gstCredit.toLocaleString("en-IN")} input credit carried forward` : "Amount due this period"}
-          icon={Percent}
+          subtext={gstCredit > 0 ? `${formatMoney(gstCredit)} input credit carried forward` : "Output GST minus Input GST"}
+          icon={Scale}
           tone={gstPayable > 0 ? "red" : "emerald"}
-        />
-      </div>
-
-      <div>
-        <h3 className="font-bold text-slate-800 dark:text-white mb-3">Output GST by Invoice</h3>
-        <DataTable
-          columns={invoiceColumns}
-          data={invoiceRows}
-          emptyIcon={Percent}
-          emptyTitle="No invoices in this period"
-          pageSize={10}
-        />
-      </div>
-
-      <div>
-        <h3 className="font-bold text-slate-800 dark:text-white mb-3">Input GST by Vendor Bill</h3>
-        <DataTable
-          columns={billColumns}
-          data={billRows}
-          emptyIcon={Building2}
-          emptyTitle="No vendor bills in this period"
-          pageSize={10}
         />
       </div>
     </div>

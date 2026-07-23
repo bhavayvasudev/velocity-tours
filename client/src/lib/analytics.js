@@ -96,9 +96,14 @@ export function paymentMethodBreakdown(bookings, limit = 6) {
   return [...top, { method: "Other", revenue: otherTotal }];
 }
 
-/** This-month vs. last-month deltas for revenue/expenses/profit, derived from buildTrendData's output. */
-export function monthlyComparison(trendData) {
-  const now = new Date();
+/**
+ * This-month vs. last-month deltas for revenue/expenses/profit, derived from
+ * buildTrendData's output. `referenceDate` defaults to the real current date,
+ * but Reports.jsx passes the Monthly Timeline's selected month instead when
+ * one is active, so clicking a past month re-anchors "this month" to it.
+ */
+export function monthlyComparison(trendData, referenceDate = new Date()) {
+  const now = referenceDate;
   const thisKey = keyFor(now);
   const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const lastKey = keyFor(last);

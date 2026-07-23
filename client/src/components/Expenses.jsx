@@ -7,6 +7,7 @@ import { Receipt, Download, Plus, Building2, Wallet, Clock } from "lucide-react"
 import { API_URL as BASE_API_URL, authHeaders } from "../lib/api";
 import { deriveStatus } from "../lib/status";
 import { exportLedger } from "../lib/excelExport";
+import { PAYMENT_MODE_OPTIONS } from "../lib/paymentModes";
 import PageHeader from "./ui/PageHeader";
 import Button from "./ui/Button";
 import Select from "./ui/Select";
@@ -31,6 +32,12 @@ const billSchema = z.object({
   paidAmount: z.coerce.number().min(0).optional(),
   billNumber: z.string().optional(),
   billDate: z.string().optional(),
+  paymentMode: z.string().optional(),
+  bankName: z.string().optional(),
+  paymentDate: z.string().optional(),
+  inputGst: z.coerce.number().min(0).optional(),
+  inputCgst: z.coerce.number().min(0).optional(),
+  inputSgst: z.coerce.number().min(0).optional(),
   notes: z.string().optional(),
 });
 
@@ -47,7 +54,21 @@ export default function Expenses() {
 
   const { register, handleSubmit, control, reset, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(billSchema),
-    defaultValues: { bookingId: "", vendorName: "", amount: "", paidAmount: "", billNumber: "", billDate: new Date().toISOString().split("T")[0], notes: "" },
+    defaultValues: {
+      bookingId: "",
+      vendorName: "",
+      amount: "",
+      paidAmount: "",
+      billNumber: "",
+      billDate: new Date().toISOString().split("T")[0],
+      paymentMode: "",
+      bankName: "",
+      paymentDate: "",
+      inputGst: "",
+      inputCgst: "",
+      inputSgst: "",
+      notes: "",
+    },
   });
 
   const fetchAll = async () => {
@@ -113,6 +134,9 @@ export default function Expenses() {
           ...values,
           amount: Number(values.amount),
           paidAmount: Number(values.paidAmount || 0),
+          inputGst: Number(values.inputGst || 0),
+          inputCgst: Number(values.inputCgst || 0),
+          inputSgst: Number(values.inputSgst || 0),
           date: values.billDate || new Date(),
         }),
       });
@@ -135,12 +159,13 @@ export default function Expenses() {
         { key: "tripName", header: "Trip" },
         { key: "billDate", header: "Bill Date", value: (e) => new Date(e.billDate || e.date).toLocaleDateString("en-IN") },
         { key: "amount", header: "Amount", align: "right", currency: true },
+        { key: "inputGst", header: "Input GST", align: "right", currency: true, value: (e) => e.inputGst || 0 },
         { key: "paidAmount", header: "Paid", align: "right", currency: true },
         { key: "pending", header: "Pending", align: "right", currency: true, pendingHighlight: true },
         { key: "status", header: "Status" },
       ],
       rows: filteredRows,
-      totalsColumns: ["amount", "paidAmount", "pending"],
+      totalsColumns: ["amount", "inputGst", "paidAmount", "pending"],
     });
   };
 
@@ -170,6 +195,12 @@ export default function Expenses() {
       header: "Billed",
       meta: { align: "right" },
       cell: ({ getValue }) => <span className="font-semibold text-slate-800 dark:text-white">{formatMoney(getValue())}</span>,
+    },
+    {
+      accessorKey: "inputGst",
+      header: "Input GST",
+      meta: { align: "right" },
+      cell: ({ getValue }) => <span className="text-slate-500 dark:text-slate-400">{getValue() ? formatMoney(getValue()) : "—"}</span>,
     },
     {
       accessorKey: "paidAmount",
@@ -270,19 +301,38 @@ export default function Expenses() {
           />
           {errors.bookingId && <p className="text-xs font-medium text-[var(--color-danger)] -mt-2">{errors.bookingId.message}</p>}
 
-          <TextInput label="Vendor / Type" placeholder="e.g. Indigo Airlines, Taj Hotel" error={errors.vendorName?.message} {...register("vendorName")} />
+          <TextInput label="Vendor Name" placeholder="e.g. Indigo Airlines, Taj Hotel" error={errors.vendorName?.message} {...register("vendorName")} />
 
           <div className="grid grid-cols-2 gap-3">
-            <TextInput label="Total Cost" type="number" placeholder="0.00" error={errors.amount?.message} {...register("amount")} />
-            <TextInput label="Paid So Far" type="number" placeholder="0.00" {...register("paidAmount")} />
+            <TextInput label="Invoice Number" placeholder="Optional" {...register("billNumber")} />
+            <TextInput label="Invoice Date" type="date" {...register("billDate")} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <TextInput label="Bill Number" placeholder="Optional" {...register("billNumber")} />
-            <TextInput label="Bill Date" type="date" {...register("billDate")} />
+            <TextInput label="Vendor Amount" type="number" placeholder="0.00" error={errors.amount?.message} {...register("amount")} />
+            <TextInput label="Total Paid" type="number" placeholder="0.00" {...register("paidAmount")} />
           </div>
 
-          <TextAreaField label="Notes" placeholder="Optional notes" {...register("notes")} />
+          <div className="grid grid-cols-2 gap-3">
+            <Controller
+              control={control}
+              name="paymentMode"
+              render={({ field }) => (
+                <Select label="Payment Mode" value={field.value} onChange={field.onChange} options={PAYMENT_MODE_OPTIONS} placeholder="Select mode" />
+              )}
+            />
+            <TextInput label="Bank Account Used" placeholder="Optional" {...register("bankName")} />
+          </div>
+
+          <TextInput label="Payment Date" type="date" {...register("paymentDate")} />
+
+          <div className="grid grid-cols-3 gap-3">
+            <TextInput label="Input GST" type="number" placeholder="0.00" hint="As shown on the vendor invoice" {...register("inputGst")} />
+            <TextInput label="Input CGST" type="number" placeholder="0.00" {...register("inputCgst")} />
+            <TextInput label="Input SGST" type="number" placeholder="0.00" {...register("inputSgst")} />
+          </div>
+
+          <TextAreaField label="Remarks" placeholder="Optional notes" {...register("notes")} />
         </form>
       </Dialog>
     </div>

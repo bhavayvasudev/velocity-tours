@@ -17,7 +17,17 @@ const ExpenseSchema = new mongoose.Schema({
   billDate: { type: Date },
   billNumber: { type: String, default: "" },
   paymentStatus: { type: String, enum: ["paid", "partial", "pending"], default: "pending" },
-  notes: { type: String, default: "" }
+  notes: { type: String, default: "" },
+
+  // --- Input GST (Phase 6) — GST as actually shown on the vendor's
+  // invoice, entered manually (not derived) since vendor bills aren't
+  // reliably 18%-inclusive the way client invoices are assumed to be. ---
+  paymentMode: { type: String, default: "" }, // e.g. ICICI, PNB, Cash, ICICI Cash, PNB Cash, TBO CC, Cheque, Other
+  bankName: { type: String, default: "" }, // Bank account used to pay this bill
+  paymentDate: { type: Date },
+  inputGst: { type: Number, default: 0 },
+  inputCgst: { type: Number, default: 0 },
+  inputSgst: { type: Number, default: 0 }
 });
 
 module.exports = mongoose.model('Expense', ExpenseSchema);

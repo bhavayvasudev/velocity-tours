@@ -46,7 +46,13 @@ router.post("/", verifyToken, async (req, res) => {
       billDate: req.body.billDate || undefined,
       billNumber: req.body.billNumber || "",
       paymentStatus: req.body.paymentStatus || "pending",
-      notes: req.body.notes || ""
+      notes: req.body.notes || "",
+      paymentMode: req.body.paymentMode || "",
+      bankName: req.body.bankName || "",
+      paymentDate: req.body.paymentDate || undefined,
+      inputGst: req.body.inputGst || 0,
+      inputCgst: req.body.inputCgst || 0,
+      inputSgst: req.body.inputSgst || 0
     });
 
     const newExpense = await expense.save();
